@@ -1,0 +1,1466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>eiskit – EIS circuit fitting &amp; DRT (offline)</title>
+<style>
+:root { --bg:#f6f7f9; --card:#fff; --ink:#1d2330; --muted:#6b7280; --line:#e3e6eb; --acc:#2563eb; --ok:#15803d; --bad:#b91c1c; --warn:#b45309; }
+* { box-sizing: border-box; }
+body { margin:0; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color:var(--ink); background:var(--bg); }
+header { background:#111827; color:#fff; padding:12px 22px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+header h1 { font-size:18px; margin:0; font-weight:650; } header .sub { color:#9ca3af; font-size:13px; }
+nav { display:flex; gap:4px; padding:0 22px; background:#1f2937; flex-wrap:wrap; }
+.tab { background:none; border:0; color:#cbd5e1; padding:11px 16px; font-size:14px; cursor:pointer; border-bottom:3px solid transparent; }
+.tab.on { color:#fff; border-bottom-color:#60a5fa; } .tab:hover { color:#fff; }
+main { padding:18px 22px 60px; max-width:1500px; margin:0 auto; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px 18px; margin-bottom:16px; }
+.card h2 { font-size:16px; margin:0 0 10px; } .card h3 { font-size:15px; margin:0 0 10px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.cols { display:grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap:16px; } @media (max-width: 1000px) { .cols { grid-template-columns: 1fr; } }
+label { font-weight:600; font-size:13px; display:block; margin:8px 0 4px; }
+input[type=text], input:not([type]), select, textarea { font: inherit; padding:7px 9px; border:1px solid #cfd4dc; border-radius:7px; background:#fff; width:100%; }
+textarea { font-family: ui-monospace, Consolas, monospace; font-size:12.5px; min-height:150px; }
+.mode-row { display:flex; gap:16px; flex-wrap:wrap; margin:6px 0 4px; } .mode-row label { display:inline-flex; gap:6px; align-items:center; font-weight:500; margin:0; }
+.three { display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:10px; }
+button { font: inherit; cursor:pointer; }
+.act { background:var(--acc); color:#fff; border:0; border-radius:7px; padding:8px 14px; font-weight:600; }
+.act.alt { background:#374151; } .act:disabled { opacity:.5; cursor:default; }
+.mini { background:#eef2f7; border:1px solid #d7dde6; border-radius:5px; padding:2px 8px; font-size:12px; margin-left:4px; }
+.mini.danger { color:var(--bad); }
+.btnrow { display:flex; gap:8px; flex-wrap:wrap; margin:10px 0; align-items:center; }
+.msg { margin-top:8px; font-size:13px; } .msg.ok { color:var(--ok); } .msg.err { color:var(--bad); }
+.ok { color:var(--ok); } .err { color:var(--bad); } .muted { color:var(--muted); font-size:13px; }
+.help { background:#f1f5ff; border:1px solid #d6e0fb; border-radius:8px; padding:10px 14px; font-size:13px; }
+.help pre { background:#fff; border:1px solid #dbe3f6; border-radius:6px; padding:8px; overflow:auto; font-size:12px; margin:6px 0; }
+.sample { display:flex; align-items:center; gap:10px; padding:6px 0; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+.sample .sname { width:220px; padding:4px 7px; }
+.swatch { width:14px; height:14px; border-radius:3px; display:inline-block; flex:none; }
+.badge { font-size:11px; font-weight:700; padding:2px 7px; border-radius:20px; background:#e5e7eb; }
+.badge.pass { background:#dcfce7; color:var(--ok); } .badge.ok { background:#fef3c7; color:var(--warn); } .badge.check { background:#fee2e2; color:var(--bad); }
+.figgrid { display:grid; grid-template-columns: minmax(0,1.1fr) minmax(0,1fr); gap:14px; } @media (max-width: 1100px) { .figgrid { grid-template-columns:1fr; } }
+.fig { background:#fff; border:1px solid var(--line); border-radius:8px; padding:8px; margin-bottom:12px; }
+.fighead { display:flex; justify-content:space-between; align-items:center; font-size:13px; margin-bottom:4px; }
+.figbody > svg { width:100%; height:auto; display:block; }
+.tbl { border-collapse:collapse; width:100%; font-size:13px; margin:6px 0 10px; } .tbl th, .tbl td { border-bottom:1px solid var(--line); padding:5px 8px; text-align:left; vertical-align:top; }
+.tbl th { background:#f3f4f6; font-weight:650; } .tbl.small { font-size:12px; } .tbl td.bad { color:var(--bad); font-weight:700; } .tbl tr.minor td { color:#9ca3af; }
+.stats { font-size:12.5px; color:#374151; margin:6px 0; } .flags { color:var(--warn); font-size:12.5px; margin:6px 0 0; padding-left:18px; }
+code { background:#f3f4f6; padding:1px 5px; border-radius:4px; font-size:12.5px; }
+.schem { overflow-x:auto; margin-top:6px; } .schem > svg { max-width:100%; height:auto; }
+#circ-preview { margin-top:8px; min-height:60px; }
+.opts { display:flex; gap:18px; flex-wrap:wrap; align-items:end; } .opts > div { min-width:150px; }
+.opts label.inline { display:flex; gap:6px; align-items:center; font-weight:500; }
+details summary { cursor:pointer; font-weight:600; margin:8px 0; }
+#busy { position:fixed; inset:0; background:rgba(17,24,39,.45); display:none; align-items:center; justify-content:center; z-index:9; }
+#busy div { background:#fff; padding:18px 26px; border-radius:10px; font-weight:600; box-shadow:0 10px 30px rgba(0,0,0,.25); }
+.lib-wrap { max-height:520px; overflow:auto; border:1px solid var(--line); border-radius:8px; }
+</style>
+</head>
+<body>
+<header><h1>eiskit</h1><span class="sub">Equivalent-circuit fitting &amp; DRT for impedance spectra · runs entirely in your browser, offline · your data never leave this computer</span></header>
+<nav><button class="tab" data-tab="data">1 · Data (<span id="sample-count">0</span>)</button><button class="tab" data-tab="fit">2 · Circuit fit</button><button class="tab" data-tab="drt">3 · DRT</button><button class="tab" data-tab="results">4 · Tables &amp; export</button><button class="tab" data-tab="help">Help &amp; circuits</button></nav>
+<main>
+
+<!-- ============================== DATA ============================== -->
+<section class="page" id="page-data">
+ <div class="cols">
+  <div class="card"><h2>Add a sample</h2>
+   <label for="in-name">Sample name (e.g. NF/Ni₃N, catalyst A, 1.56 V)</label><input id="in-name" placeholder="optional – file names / headers are used otherwise">
+   <div class="mode-row"><label><input type="radio" name="mode" value="table" checked> Paste a table</label><label><input type="radio" name="mode" value="columns"> Paste each column</label><label><input type="radio" name="mode" value="file"> Upload file(s)</label></div>
+   <div class="mode" data-mode="table">
+    <label for="in-table">Paste three columns: frequency, Z′, Z″ (copy straight from Excel, Origin or your instrument export)</label>
+    <textarea id="in-table" placeholder="Frequency (Hz)	Z' (Ohm)	-Z'' (Ohm)
+100000	2.549	0.383
+79432.8	2.551	0.306
+63095.7	2.553	0.244
+..."></textarea>
+    <label for="in-fmt">The third column contains</label>
+    <select id="in-fmt"><option value="auto">detect automatically (from header, otherwise from the sign)</option><option value="minus_z">−Z″ (positive for capacitive data)</option><option value="z">Z″ (negative for capacitive data)</option><option value="polar">|Z| and phase: columns are f, |Z|, phase (°)</option></select>
+   </div>
+   <div class="mode" data-mode="columns" style="display:none">
+    <p class="muted">Paste one value per line in each box (same order, same number of values).</p>
+    <div class="three"><div><label for="in-f">Frequency (Hz)</label><textarea id="in-f" placeholder="100000&#10;79432.8&#10;..."></textarea></div>
+     <div><label for="in-re">Real impedance Z′ (Ω)</label><textarea id="in-re" placeholder="2.549&#10;2.551&#10;..."></textarea></div>
+     <div><label for="in-im">Imaginary impedance (Ω)</label><textarea id="in-im" placeholder="0.383&#10;0.306&#10;..."></textarea></div></div>
+    <label for="in-imsign">The imaginary values are</label><select id="in-imsign"><option value="auto">detect automatically</option><option value="minus_z">−Z″ (positive for capacitive data)</option><option value="z">Z″ (negative for capacitive data)</option></select>
+   </div>
+   <div class="mode" data-mode="file" style="display:none">
+    <label for="in-file">CSV, TXT, DAT or XLSX – several files may be selected</label><input type="file" id="in-file" multiple accept=".csv,.txt,.dat,.tsv,.xlsx,.xlsm">
+    <label for="file-fmt">Imaginary column</label><select id="file-fmt"><option value="auto">detect automatically</option><option value="minus_z">−Z″</option><option value="z">Z″</option><option value="polar">files hold f, |Z|, phase</option></select>
+    <p class="muted">A file may hold several samples side by side (three-column blocks, sample name in the cell above each block); each block becomes a sample.</p>
+   </div>
+   <div class="btnrow"><button class="act" id="btn-add">Add sample</button><button class="act alt" id="btn-example">Load example data</button><button class="mini danger" id="btn-clear">Remove all</button></div>
+   <div id="in-msg" class="msg"></div>
+  </div>
+  <div class="card"><h2>How to set up your data</h2><div class="help">
+   <p><b>One row per frequency, three columns:</b> frequency (Hz) · real part Z′ (Ω) · imaginary part (Ω). A header row is optional. Tabs, commas, semicolons or spaces are all fine, and decimal commas (2,549) are understood.</p>
+<pre>Frequency (Hz)   Z' (Ohm)   -Z'' (Ohm)
+100000           2.549      0.383
+10000            2.561      0.081
+...              ...        ...</pre>
+   <p><b>Imaginary sign:</b> instruments export either Z″ (negative for capacitive data) or −Z″. A header such as <code>-Z''</code> or <code>-Im(Z)</code> is recognised; without a header the sign is taken from the data. You can also set it explicitly.</p>
+   <p><b>Several samples in one file:</b> put the three-column blocks next to each other (an empty column between them is fine) and the sample name in the cell above each block.</p>
+   <p><b>No need to delete odd points.</b> The fit is <i>robust</i>: it follows the trend of the data and automatically down-weights points that deviate from it (noise spikes, instrument artefacts). Those points are drawn hollow and listed in the results.</p>
+  </div></div>
+ </div>
+ <div class="card"><h2>Samples</h2><div id="sample-list"></div></div>
+ <div class="card"><h2>Data preview</h2><div id="data-figs"></div></div>
+</section>
+
+<!-- ============================== FIT ============================== -->
+<section class="page" id="page-fit" style="display:none">
+ <div class="card"><h2>Choose the equivalent circuit</h2>
+  <div class="cols"><div>
+   <label for="circ-lib">From the literature library</label><select id="circ-lib"></select>
+   <label for="circ-input">…or type a circuit in any notation</label><input id="circ-input" spellcheck="false" autocomplete="off">
+   <p class="muted">Examples: <code>R-p(R,CPE)</code> · <code>Rs-p(Rct,CPEdl)</code> · <code>(R)p(CPE-Ws)</code> · <code>R+Q/(R+W)</code> · <code>R(QR)(QR)</code> · <code>R-p(R,CPE)-p(R-Wo,CPE)</code>. See “Help &amp; circuits” for the full syntax.</p>
+  </div><div><label>Interpretation (check before fitting)</label><div id="circ-preview"></div></div></div>
+  <div class="opts" style="margin-top:12px">
+   <div><label class="inline"><input type="checkbox" id="opt-robust" checked> Robust fit (follow the trend)</label></div>
+   <div><label for="opt-weight">Weighting</label><select id="opt-weight"><option value="modulus">modulus 1/|Z| (recommended)</option><option value="proportional">proportional</option><option value="unit">unit</option></select></div>
+   <div><label for="opt-starts">Starting points</label><select id="opt-starts"><option>4</option><option selected>8</option><option>16</option><option>32</option></select></div>
+   <div><label class="inline"><input type="checkbox" id="opt-equal" checked> Equal axes in Nyquist plot</label>
+        <label class="inline"><input type="checkbox" id="opt-inset" checked> Circuit as inset in Nyquist plot</label></div>
+  </div>
+  <div class="btnrow" style="margin-top:14px">
+   <button class="act" id="btn-fit">Fit this circuit to all ticked samples</button>
+   <button class="act alt" id="btn-search">Find the best circuit for each sample</button>
+   <button class="act alt" id="btn-common">Find the best common circuit</button>
+   <select id="lib-scope" style="width:auto"><option value="lit">search: literature library</option><option value="custom">search: my own list of circuits</option></select>
+  </div>
+  <textarea id="lib-custom" style="display:none;min-height:90px" placeholder="one circuit per line, any notation, e.g.&#10;R-p(R,CPE)&#10;R-p(R,CPE)-p(R,CPE)&#10;R-p(R-Ws,CPE)"></textarea>
+  <p class="muted">Searches fit every circuit and rank them: circuits whose parameters are all determined come first, then by AICc (fit quality penalised for the number of parameters). The <i>common</i> circuit has the lowest summed AICc over all samples among circuits valid for at least half of them – use it when parameters must be compared between samples.</p>
+ </div>
+ <div class="card"><h2>Fit</h2><div id="fit-figs"></div></div>
+ <div id="fit-cards"></div>
+</section>
+
+<!-- ============================== DRT ============================== -->
+<section class="page" id="page-drt" style="display:none">
+ <div class="card"><h2>Distribution of relaxation times</h2>
+  <p class="muted">Model-free analysis: the spectrum is decomposed into relaxation processes, γ(τ) ≥ 0, by Tikhonov-regularised non-negative least squares. Each peak is a process (f = 1/2πτ) and its area is that process's resistance. A series capacitance is added automatically for blocking spectra that do not return to the real axis.</p>
+  <div class="opts"><div><label for="drt-lam">Regularisation λ</label><select id="drt-lam"><option value="auto">automatic (smoothest DRT that fits the data)</option><option value="manual">manual</option></select></div>
+   <div><input id="drt-lamval" value="0.001" style="display:none;width:110px" title="λ (1e-6 … 1)"></div>
+   <div><button class="act" id="btn-drt">Compute DRT for all ticked samples</button></div></div>
+  <div id="drt-out" style="margin-top:12px"></div></div>
+</section>
+
+<!-- ============================== RESULTS ============================== -->
+<section class="page" id="page-results" style="display:none"><div class="card"><div id="res-out"></div></div></section>
+
+<!-- ============================== HELP ============================== -->
+<section class="page" id="page-help" style="display:none">
+ <div class="cols">
+ <div class="card"><h2>Circuit notation</h2><div class="help">
+  <p><b>Elements</b> (numbers and labels are optional and added automatically):</p>
+  <table class="tbl small"><tr><th>Symbol</th><th>Element</th><th>Impedance</th><th>Parameters</th></tr>
+   <tr><td><code>R</code></td><td>resistor</td><td>R</td><td>R (Ω)</td></tr>
+   <tr><td><code>C</code></td><td>capacitor</td><td>1/(jωC)</td><td>C (F)</td></tr>
+   <tr><td><code>L</code></td><td>inductor</td><td>jωL</td><td>L (H)</td></tr>
+   <tr><td><code>Ls</code></td><td>signed inductance (artefact)</td><td>jωL, L may be &lt; 0</td><td>L (H)</td></tr>
+   <tr><td><code>CPE</code> or <code>Q</code></td><td>constant-phase element</td><td>1/[Q(jω)ⁿ]</td><td>CPE-T = Q (S·sⁿ), CPE-P = n</td></tr>
+   <tr><td><code>W</code></td><td>semi-infinite Warburg</td><td>σ(1−j)/√ω</td><td>σ</td></tr>
+   <tr><td><code>Ws</code> or <code>T</code></td><td>finite-length (transmissive) Warburg</td><td>R·tanh√(jωτ)/√(jωτ)</td><td>R (Ω), τ (s)</td></tr>
+   <tr><td><code>Wo</code> or <code>O</code></td><td>finite-space (reflective) Warburg</td><td>R·coth√(jωτ)/√(jωτ)</td><td>R (Ω), τ (s)</td></tr>
+   <tr><td><code>G</code></td><td>Gerischer</td><td>R/√(1+jωτ)</td><td>R (Ω), τ (s)</td></tr>
+   <tr><td><code>TLM</code></td><td>de Levie transmission line (porous electrode)</td><td>√(R<sub>ion</sub>Z<sub>i</sub>)·coth√(R<sub>ion</sub>/Z<sub>i</sub>), Z<sub>i</sub> = R<sub>ct</sub>∥CPE</td><td>R<sub>ion</sub>, R<sub>ct</sub>, Q, n</td></tr>
+   <tr><td><code>TLMQ</code></td><td>transmission line, blocking</td><td>as TLM with Z<sub>i</sub> = CPE</td><td>R<sub>ion</sub>, Q, n</td></tr></table>
+  <p><b>Connections</b> – parallel binds more strongly than series:</p>
+  <table class="tbl small"><tr><th>Meaning</th><th>Write</th></tr>
+   <tr><td>series</td><td><code>A-B</code> · <code>A+B</code> · <code>AB</code> · <code>[A B]</code></td></tr>
+   <tr><td>parallel</td><td><code>p(A,B)</code> · <code>A/B</code> · <code>A|B</code> · <code>A||B</code> · <code>(A)p(B)</code></td></tr>
+   <tr><td>grouping</td><td><code>( … )</code></td></tr>
+   <tr><td>Boukamp CDC (auto-detected)</td><td><code>R(QR)(QR)</code> · <code>R(Q[RW])</code> – ( ) parallel, [ ] series</td></tr></table>
+  <p><b>Labels:</b> <code>R1</code>, <code>Rs</code>, <code>Rct</code>, <code>Rsei</code>, <code>Cdl</code>, <code>CPEdl</code>, or any text after an underscore (<code>R_pore</code>). The interpretation is always shown in plain form, e.g. <code>(R)p(CPE-Ws)</code> → <b>[R0 ∥ (CPE1 + Ws1)]</b>, so you can check it before fitting.</p>
+ </div></div>
+ <div class="card"><h2>How the fit works</h2><div class="help">
+  <p><b>Complex non-linear least squares</b>: real and imaginary parts are fitted together, each point weighted by 1/|Z| (every frequency decade counts equally). Parameters stay physical (R, C, Q, τ &gt; 0; 0.3 ≤ n ≤ 1). Several starting points are tried.</p>
+  <p><b>Robust fitting</b>: a soft-L1 fit followed by a Cauchy (redescending) fit whose scale is estimated from the median deviation. Points that follow the trend are fitted normally; points far from it (more than 4 robust standard deviations) are down-weighted, shown hollow, and excluded from the statistics. No manual deletion is needed.</p>
+  <p><b>Uncertainties</b>: standard errors from the covariance s²(JᵀJ)⁻¹; 95 % CI = value ± 1.96·SD. A fit is flagged if any parameter is undetermined (relative error &gt; 100 %), at a bound, or physically meaningless (infinite/negligible resistance).</p>
+  <p><b>Model selection</b>: valid fits first, then lowest AICc. Choose among the best few with physical knowledge of your system.</p>
+  <p><b>Kramers–Kronig</b>: linear Lin-KK test (Schönleber et al., 2014); max residual &lt; 1 % = PASS, &lt; 2 % = OK.</p>
+  <p><b>DRT</b>: Tikhonov regularisation with a second-derivative penalty and non-negativity (cf. Wan et al., 2015); λ chosen as the smoothest solution whose reconstruction error is within 25 % of the best attainable.</p>
+  <p><b>Effective capacitance</b> of an R∥CPE: C<sub>eff</sub> = Q<sup>1/n</sup>R<sup>(1−n)/n</sup> (Hsu &amp; Mansfeld, 2001).</p>
+ </div></div></div>
+ <div class="card"><h2>Literature circuit library</h2><div class="lib-wrap"><table class="tbl small" id="lib-table"></table></div></div>
+</section>
+</main>
+<div id="busy"><div id="busy-text">Working …</div></div>
+<script>window.EIS_LITERATURE = [{"name": "Ideal blocking electrode", "field": "capacitors, inert electrodes", "circuit": "R0-C1", "elements": "R0 electrolyte; C1 double layer"}, {"name": "Blocking electrode (CPE)", "field": "capacitors, rough/porous electrodes", "circuit": "R0-CPE1", "elements": "CPE1 non-ideal double layer"}, {"name": "Blocking porous electrode (de Levie)", "field": "supercapacitors, porous carbons", "circuit": "R0-TLMQ1", "elements": "TLMQ1 pore ionic resistance + distributed double layer"}, {"name": "Contact + blocking porous electrode", "field": "supercapacitors", "circuit": "R0-p(R1,CPE1)-TLMQ2", "elements": "R1/CPE1 current-collector contact; TLMQ2 porous electrode"}, {"name": "Simplified Randles", "field": "electrocatalysis, corrosion", "circuit": "R0-p(R1,C1)", "elements": "R1 charge transfer; C1 double layer"}, {"name": "Simplified Randles (CPE)", "field": "electrocatalysis (HER/OER/ORR), corrosion", "circuit": "R0-p(R1,CPE1)", "elements": "R1 charge transfer; CPE1 double layer"}, {"name": "Randles (semi-infinite diffusion)", "field": "redox couples, sensors", "circuit": "R0-p(R1-W1,C1)", "elements": "W1 Warburg diffusion"}, {"name": "Modified Randles (CPE + Warburg)", "field": "sensors, biosensors, batteries", "circuit": "R0-p(R1-W1,CPE1)", "elements": ""}, {"name": "Randles, finite-length diffusion", "field": "thin films, membranes, batteries", "circuit": "R0-p(R1-Ws1,CPE1)", "elements": "Ws1 transmissive diffusion layer"}, {"name": "Randles, finite-space diffusion", "field": "thin films, intercalation, batteries", "circuit": "R0-p(R1-Wo1,CPE1)", "elements": "Wo1 reflective (blocked) diffusion"}, {"name": "Randles, finite-length diffusion (ideal C)", "field": "thin films", "circuit": "R0-p(R1-Ws1,C1)", "elements": ""}, {"name": "Randles, finite-space diffusion (ideal C)", "field": "intercalation", "circuit": "R0-p(R1-Wo1,C1)", "elements": ""}, {"name": "Randles with external Warburg", "field": "batteries, fuel cells", "circuit": "R0-p(R1,CPE1)-W2", "elements": "diffusion outside the interfacial arc"}, {"name": "Randles with external Warburg (ideal C)", "field": "batteries", "circuit": "R0-p(R1,C1)-W2", "elements": ""}, {"name": "Charge transfer + capacitive tail", "field": "pseudocapacitors, intercalation", "circuit": "R0-p(R1,CPE1)-CPE2", "elements": "CPE2 low-frequency (pseudo)capacitance"}, {"name": "Charge transfer + ideal capacitive tail", "field": "pseudocapacitors", "circuit": "R0-p(R1,CPE1)-C2", "elements": ""}, {"name": "Charge transfer + finite-length diffusion", "field": "batteries, membranes", "circuit": "R0-p(R1,CPE1)-Ws2", "elements": ""}, {"name": "Charge transfer + blocked diffusion", "field": "batteries at low frequency", "circuit": "R0-p(R1,CPE1)-Wo2", "elements": ""}, {"name": "Randles with Gerischer", "field": "coupled reaction-diffusion", "circuit": "R0-p(R1-G1,CPE1)", "elements": ""}, {"name": "Two-time-constant (Voigt, ideal)", "field": "films, SEI, coatings", "circuit": "R0-p(R1,C1)-p(R2,C2)", "elements": ""}, {"name": "Two-time-constant (Voigt, CPE)", "field": "electrocatalysts with surface layer, SEI + charge transfer", "circuit": "R0-p(R1,CPE1)-p(R2,CPE2)", "elements": "R1/CPE1 film or surface layer; R2/CPE2 charge transfer + double layer"}, {"name": "Two-time-constant (ideal + CPE)", "field": "films", "circuit": "R0-p(R1,C1)-p(R2,CPE2)", "elements": ""}, {"name": "Two-time-constant (CPE + ideal)", "field": "films", "circuit": "R0-p(R1,CPE1)-p(R2,C2)", "elements": ""}, {"name": "SEI + charge transfer + diffusion", "field": "Li-ion batteries", "circuit": "R0-p(R1,CPE1)-p(R2-W2,CPE2)", "elements": "R1 SEI; R2 charge transfer; W2 solid-state diffusion"}, {"name": "SEI + charge transfer + finite-length diffusion", "field": "Li-ion batteries", "circuit": "R0-p(R1,CPE1)-p(R2-Ws2,CPE2)", "elements": ""}, {"name": "SEI + charge transfer + blocked diffusion", "field": "Li-ion batteries", "circuit": "R0-p(R1,CPE1)-p(R2-Wo2,CPE2)", "elements": ""}, {"name": "Battery cell (SEI, CT, Warburg tail)", "field": "Li-ion / Na-ion cells", "circuit": "R0-p(R1,CPE1)-p(R2,CPE2)-W3", "elements": ""}, {"name": "Battery cell (SEI, CT, blocked diffusion)", "field": "Li-ion cells", "circuit": "R0-p(R1,CPE1)-p(R2,CPE2)-Wo3", "elements": ""}, {"name": "Battery cell (SEI, CT, intercalation capacitance)", "field": "Li-ion cells", "circuit": "R0-p(R1,CPE1)-p(R2,CPE2)-CPE3", "elements": ""}, {"name": "Battery cell (SEI, CT, ideal intercalation capacitance)", "field": "Li-ion cells", "circuit": "R0-p(R1,CPE1)-p(R2,CPE2)-C3", "elements": ""}, {"name": "Two arcs + Gerischer", "field": "SOFC electrodes", "circuit": "R0-p(R1,CPE1)-p(R2-G2,CPE2)", "elements": ""}, {"name": "Three-time-constant (CPE)", "field": "solid-state cells, SOFC, multilayers", "circuit": "R0-p(R1,CPE1)-p(R2,CPE2)-p(R3,CPE3)", "elements": ""}, {"name": "Brick-layer model", "field": "ceramics, solid electrolytes (bulk, grain boundary, electrode)", "circuit": "R0-p(R1,C1)-p(R2,C2)-p(R3,C3)", "elements": "R1 bulk; R2 grain boundary; R3 electrode"}, {"name": "Brick-layer model (CPE)", "field": "ceramics, solid electrolytes", "circuit": "R0-p(R1,CPE1)-p(R2,CPE2)-p(R3,CPE3)-CPE4", "elements": "CPE4 blocking electrode"}, {"name": "Three arcs + diffusion", "field": "batteries, fuel cells", "circuit": "R0-p(R1,CPE1)-p(R2,CPE2)-p(R3-W3,CPE3)", "elements": ""}, {"name": "Four-time-constant (CPE)", "field": "fuel cells, complex interfaces", "circuit": "R0-p(R1,CPE1)-p(R2,CPE2)-p(R3,CPE3)-p(R4,CPE4)", "elements": ""}, {"name": "Coated metal / porous film (nested)", "field": "coatings, passive films, corrosion", "circuit": "R0-p(CPE1,R1-p(R2,CPE2))", "elements": "CPE1 coating; R1 pore resistance; R2/CPE2 metal interface"}, {"name": "Coated metal (ideal capacitances)", "field": "coatings", "circuit": "R0-p(C1,R1-p(R2,C2))", "elements": ""}, {"name": "Adsorbed intermediate (Armstrong-Henderson / Harrington-Conway)", "field": "HER, OER, UPD", "circuit": "R0-p(CPE1,R1-p(R2,C2))", "elements": "R1 charge transfer; R2/C2 adsorption resistance and pseudocapacitance"}, {"name": "Coating with diffusion at the metal", "field": "coatings, corrosion", "circuit": "R0-p(CPE1,R1-p(R2-W2,CPE2))", "elements": ""}, {"name": "Coating with blocked diffusion", "field": "coatings", "circuit": "R0-p(CPE1,R1-p(R2-Wo2,CPE2))", "elements": ""}, {"name": "Three-layer ladder", "field": "multilayer coatings, porous films", "circuit": "R0-p(CPE1,R1-p(CPE2,R2-p(R3,CPE3)))", "elements": ""}, {"name": "Film with blocking inner interface", "field": "passive films", "circuit": "R0-p(CPE1,R1-CPE2)", "elements": ""}, {"name": "Extra HF arc + nested adsorption model", "field": "electrocatalysts on supports", "circuit": "R0-p(R1,CPE1)-p(CPE2,R2-p(R3,CPE3))", "elements": ""}, {"name": "Maxwell-type adsorption branch", "field": "adsorption, electrocatalysis", "circuit": "R0-p(CPE1,R1,R2-C2)", "elements": ""}, {"name": "Maxwell-type adsorption branch (ideal)", "field": "adsorption", "circuit": "R0-p(C1,R1,R2-C2)", "elements": ""}, {"name": "Surface-state model (photoelectrodes)", "field": "photoelectrochemistry (hematite, BiVO4)", "circuit": "R0-p(C1,R1,R2-p(C2,R3))", "elements": "C1 bulk; R1 bulk transfer; R2 trapping; C2/R3 surface states"}, {"name": "Surface-state model (CPE)", "field": "photoelectrochemistry", "circuit": "R0-p(CPE1,R1,R2-p(CPE2,R3))", "elements": ""}, {"name": "Inductive loop (adsorbed intermediate)", "field": "corrosion, dissolution, fuel cells", "circuit": "R0-p(CPE1,R1,R2-L2)", "elements": ""}, {"name": "Inductive loop (nested)", "field": "corrosion with adsorption", "circuit": "R0-p(CPE1,R1-p(R2,L2))", "elements": ""}, {"name": "Randles with cable inductance", "field": "high-frequency artefacts", "circuit": "L0-R0-p(R1,CPE1)", "elements": ""}, {"name": "Two arcs with cable inductance", "field": "high-frequency artefacts", "circuit": "L0-R0-p(R1,CPE1)-p(R2,CPE2)", "elements": ""}, {"name": "Two arcs with signed HF inductance", "field": "instrument artefact correction", "circuit": "Ls0-R0-p(R1,CPE1)-p(R2,CPE2)", "elements": "Ls0 may be negative (not a cell property)"}, {"name": "Gerischer", "field": "chemical reaction + diffusion, MIEC electrodes", "circuit": "R0-G1", "elements": ""}, {"name": "SOFC MIEC cathode (Gerischer / ALS)", "field": "solid oxide fuel cells", "circuit": "R0-p(R1,CPE1)-G2", "elements": ""}, {"name": "Porous electrode with charge transfer (de Levie)", "field": "porous electrodes, fuel-cell catalyst layers", "circuit": "R0-TLM1", "elements": "TLM1 pore resistance, charge transfer and double layer distributed along the pores"}, {"name": "Contact + porous electrode", "field": "porous electrodes", "circuit": "R0-p(R1,CPE1)-TLM2", "elements": ""}, {"name": "Semi-infinite diffusion only", "field": "diffusion-controlled electrodes", "circuit": "R0-W1", "elements": ""}, {"name": "Finite-length diffusion only", "field": "membranes, thin layers", "circuit": "R0-Ws1", "elements": ""}, {"name": "Finite-space diffusion only", "field": "thin films, batteries", "circuit": "R0-Wo1", "elements": ""}, {"name": "Randles with stray capacitance", "field": "high-impedance cells, reference-electrode artefacts", "circuit": "p(C9,R0-p(R1,CPE1))", "elements": ""}, {"name": "Two arcs with stray capacitance", "field": "high-impedance cells", "circuit": "p(C9,R0-p(R1,CPE1)-p(R2,CPE2))", "elements": ""}, {"name": "Bulk + interface (solid electrolyte, blocking)", "field": "solid electrolytes", "circuit": "p(R1,C1)-CPE2", "elements": "R1/C1 bulk; CPE2 blocking electrodes"}, {"name": "Bulk + grain boundary + blocking", "field": "solid electrolytes", "circuit": "p(R1,C1)-p(R2,CPE2)-CPE3", "elements": ""}];</script>
+<script>/* eiskit web engine – circuit notation, impedance, robust CNLS fitting, Lin-KK, DRT, file parsing.
+   Pure JavaScript, no dependencies; the same algorithms as the eiskit Python package. */
+"use strict";
+const EIS = (() => {
+
+// ------------------------------------------------------------------------------------------
+// notation parser (same grammar as eiskit.notation)
+// ------------------------------------------------------------------------------------------
+const ALIASES = { Q: "CPE", O: "Wo", T: "Ws" };
+const SUBS = "sei|film|pore|ion|ads|sol|ct|dl|ox|po|gb|ad|el|b|f|s";
+const EL_RE = new RegExp("^(TLMQ|TLM|CPE|Ls|Wo|Ws|W|R|C|L|G|Q|O|T)(\\d+|_\\w+|(?:" + SUBS + ")(?![a-z]))?");
+class NotationError extends Error {}
+
+function tokenize(src) {
+  const s = src.replace(/\s+/g, "").replace(/‖|∥/g, "||");
+  const t = []; let i = 0;
+  while (i < s.length) {
+    const ch = s[i];
+    if (s.startsWith("||", i)) { t.push(["PAR", "||"]); i += 2; continue; }
+    if (ch === "-" || ch === "+") { t.push(["SER", ch]); i++; continue; }
+    if (ch === "/" || ch === "|") { t.push(["PAR", ch]); i++; continue; }
+    if (ch === "(" || ch === "[") { t.push(["LP", ch]); i++; continue; }
+    if (ch === ")" || ch === "]") { t.push(["RP", ch]); i++; continue; }
+    if (ch === ",") { t.push(["COMMA", ch]); i++; continue; }
+    if (ch === "p") {
+      const prev = t.length ? t[t.length - 1][0] : null;
+      if (prev === "EL" || prev === "RP") { t.push(["PAR", "p"]); i++; continue; }
+      if (s[i + 1] === "(") { t.push(["PFUN", "p("]); i += 2; continue; }
+      throw new NotationError(`unexpected 'p' at position ${i} in '${s}'`);
+    }
+    const m = s.slice(i).match(EL_RE);
+    if (m) { t.push(["EL", [ALIASES[m[1]] || m[1], (m[2] || "").replace(/^_/, "")]]); i += m[0].length; continue; }
+    throw new NotationError(`cannot read '${s.slice(i)}' (position ${i}) in '${s}'`);
+  }
+  return t;
+}
+function mk(kind, items) {
+  if (items.length === 1) return items[0];
+  const flat = [];
+  for (const it of items) { if (it[0] === kind) flat.push(...it[1]); else flat.push(it); }
+  return [kind, flat];
+}
+function parseTokens(toks, src) {
+  let i = 0;
+  const peek = () => toks[i] || [null, null];
+  const take = (kind) => { const tk = peek(); if (kind && tk[0] !== kind) throw new NotationError(`expected ${kind === "RP" ? "')'" : kind} in '${src}'`); i++; return tk; };
+  function series() { const it = [par()]; while (peek()[0] === "SER") { take(); it.push(par()); } return mk("s", it); }
+  function par() { const it = [juxt()]; while (peek()[0] === "PAR") { take(); it.push(juxt()); } return mk("p", it); }
+  function juxt() { const it = [atom()]; while (["EL", "LP", "PFUN"].includes(peek()[0])) it.push(atom()); return mk("s", it); }
+  function atom() {
+    const [kind, val] = peek();
+    if (kind === "EL") { take(); return ["e", val[0], val[1]]; }
+    if (kind === "LP") { take(); const n = series(); take("RP"); return n; }
+    if (kind === "PFUN") {
+      take(); const br = [series()];
+      while (peek()[0] === "COMMA") { take(); br.push(series()); }
+      take("RP");
+      if (br.length < 2) throw new NotationError(`p(...) needs at least two branches separated by commas, e.g. p(R1,CPE1); did you mean (A)p(B)?`);
+      return mk("p", br);
+    }
+    throw new NotationError(val ? `unexpected '${val}' in '${src}'` : `incomplete circuit '${src}'`);
+  }
+  const tree = series();
+  if (i !== toks.length) throw new NotationError(`unexpected '${toks[i][1]}' in '${src}'`);
+  return tree;
+}
+function isCDC(s) { s = s.replace(/\s+/g, ""); return s.length > 0 && /^[RCLQWOTG()\[\]]+$/.test(s) && (/[(\[]/.test(s) || s.length <= 6); }
+function parseCDC(src) {
+  const s = src.replace(/\s+/g, ""); let pos = 0;
+  function group(closing, kind) {
+    const it = [];
+    while (pos < s.length && s[pos] !== closing) {
+      const ch = s[pos];
+      if (ch === "(") { pos++; it.push(group(")", "p")); }
+      else if (ch === "[") { pos++; it.push(group("]", "s")); }
+      else { it.push(["e", ALIASES[ch] || ch, ""]); pos++; }
+    }
+    if (closing) { if (pos >= s.length) throw new NotationError(`missing '${closing}' in '${s}'`); pos++; }
+    if (!it.length) throw new NotationError(`empty group in '${s}'`);
+    return mk(kind, it);
+  }
+  return group(null, "s");
+}
+function numberTree(tree) {
+  const used = new Set();
+  (function collect(n) {
+    if (n[0] === "e") { if (n[2]) { const k = n[1] + n[2]; if (used.has(k)) throw new NotationError(`element ${k} appears twice`); used.add(k); } }
+    else n[1].forEach(collect);
+  })(tree);
+  const counter = {};
+  return (function assign(n) {
+    if (n[0] === "e") {
+      let num = n[2];
+      if (!num) {
+        let k = counter[n[1]] ?? (n[1] === "R" ? 0 : 1);
+        while (used.has(n[1] + k)) k++;
+        counter[n[1]] = k + 1; num = String(k); used.add(n[1] + num);
+      }
+      return ["e", n[1], n[1] + num];
+    }
+    return [n[0], n[1].map(assign)];
+  })(tree);
+}
+function toString(n) {
+  if (n[0] === "e") return n[2];
+  if (n[0] === "s") return n[1].map(c => c[0] === "s" ? `(${toString(c)})` : toString(c)).join("-");
+  return "p(" + n[1].map(toString).join(",") + ")";
+}
+function explainTree(n, inPar) {
+  if (n[0] === "e") return n[2];
+  if (n[0] === "s") { const t = n[1].map(c => explainTree(c, false)).join(" + "); return inPar ? `(${t})` : t; }
+  return "[" + n[1].map(c => explainTree(c, true)).join(" ∥ ") + "]";
+}
+function parse(notation) {
+  const s = (notation || "").trim();
+  if (!s) throw new NotationError("empty circuit");
+  return numberTree(isCDC(s) ? parseCDC(s) : parseTokens(tokenize(s), s));
+}
+
+// ------------------------------------------------------------------------------------------
+// elements
+// ------------------------------------------------------------------------------------------
+const ELEMENTS = {
+  R: [["", "Ω", "log"]], C: [["", "F", "log"]], L: [["", "H", "log"]], Ls: [["", "H", "lin"]],
+  CPE: [["_Q", "S·sⁿ", "log"], ["_n", "", "n"]], W: [["_sigma", "Ω·s⁻⁰·⁵", "log"]],
+  Wo: [["_R", "Ω", "log"], ["_tau", "s", "log"]], Ws: [["_R", "Ω", "log"], ["_tau", "s", "log"]],
+  G: [["_R", "Ω", "log"], ["_tau", "s", "log"]],
+  TLM: [["_Rion", "Ω", "log"], ["_Rct", "Ω", "log"], ["_Q", "S·sⁿ", "log"], ["_n", "", "n"]],
+  TLMQ: [["_Rion", "Ω", "log"], ["_Q", "S·sⁿ", "log"], ["_n", "", "n"]],
+};
+// complex helpers on scalars
+const cmul = (a, b, c, d) => [a * c - b * d, a * d + b * c];
+const cdiv = (a, b, c, d) => { const q = c * c + d * d; return [(a * c + b * d) / q, (b * c - a * d) / q]; };
+const csqrt = (a, b) => { const r = Math.hypot(a, b); let x = Math.sqrt((r + a) / 2), y = Math.sqrt(Math.max((r - a) / 2, 0)); if (b < 0) y = -y; return [x, y]; };
+function ctanh(a, b) {
+  if (Math.abs(a) > 20) return [Math.sign(a), 0];
+  const d = Math.cosh(2 * a) + Math.cos(2 * b);
+  return [Math.sinh(2 * a) / d, Math.sin(2 * b) / d];
+}
+function elementZ(type, w, p, re, im) {           // fills re/im arrays
+  const n = w.length;
+  for (let i = 0; i < n; i++) {
+    const wi = w[i]; let z;
+    switch (type) {
+      case "R": z = [p[0], 0]; break;
+      case "C": z = [0, -1 / (wi * p[0])]; break;
+      case "L": case "Ls": z = [0, wi * p[0]]; break;
+      case "CPE": { const m = 1 / (p[0] * Math.pow(wi, p[1])), ph = -p[1] * Math.PI / 2; z = [m * Math.cos(ph), m * Math.sin(ph)]; break; }
+      case "W": { const s = p[0] / Math.sqrt(wi); z = [s, -s]; break; }
+      case "Wo": case "Ws": {
+        const x = csqrt(0, wi * p[1]); const t = ctanh(x[0], x[1]);
+        z = type === "Ws" ? cdiv(t[0], t[1], x[0], x[1]) : cdiv(1, 0, ...cmul(t[0], t[1], x[0], x[1]));
+        z = [p[0] * z[0], p[0] * z[1]]; break;
+      }
+      case "G": { const s = csqrt(1, wi * p[1]); z = cdiv(p[0], 0, s[0], s[1]); break; }
+      case "TLM": case "TLMQ": {
+        const Rion = p[0]; let Q, nn, yi;
+        if (type === "TLM") { Q = p[2]; nn = p[3]; } else { Q = p[1]; nn = p[2]; }
+        const m = Q * Math.pow(wi, nn), ph = nn * Math.PI / 2;
+        yi = [m * Math.cos(ph), m * Math.sin(ph)];                          // admittance of CPE
+        if (type === "TLM") yi = [yi[0] + 1 / p[1], yi[1]];
+        const Zi = cdiv(1, 0, yi[0], yi[1]);
+        const x = csqrt(...cdiv(Rion, 0, Zi[0], Zi[1]));
+        const t = ctanh(x[0], x[1]); const coth = cdiv(1, 0, t[0], t[1]);
+        const s = csqrt(Rion * Zi[0], Rion * Zi[1]);
+        z = cmul(s[0], s[1], coth[0], coth[1]); break;
+      }
+      default: throw new Error("unknown element " + type);
+    }
+    re[i] = z[0]; im[i] = z[1];
+  }
+}
+
+class Circuit {
+  constructor(notation, description = "") {
+    this.notation = notation; this.tree = parse(notation); this.string = toString(this.tree);
+    this.description = description; this.names = []; this.units = []; this.kinds = []; this.elements = []; this.start = {};
+    const idx = (n) => {
+      if (n[0] === "e") {
+        this.start[n[2]] = this.names.length; this.elements.push([n[1], n[2]]);
+        for (const [suf, unit, kind] of ELEMENTS[n[1]]) { this.names.push(n[2] + suf); this.units.push(unit); this.kinds.push(kind); }
+      } else n[1].forEach(idx);
+    };
+    idx(this.tree);
+  }
+  get nParams() { return this.names.length; }
+  explain() { return explainTree(this.tree, false); }
+  impedance(p, w) {
+    const n = w.length;
+    const ev = (node) => {
+      if (node[0] === "e") {
+        const s = this.start[node[2]], m = ELEMENTS[node[1]].length;
+        const re = new Float64Array(n), im = new Float64Array(n);
+        elementZ(node[1], w, p.slice(s, s + m), re, im); return [re, im];
+      }
+      const parts = node[1].map(ev);
+      const re = new Float64Array(n), im = new Float64Array(n);
+      if (node[0] === "s") { for (const [a, b] of parts) for (let i = 0; i < n; i++) { re[i] += a[i]; im[i] += b[i]; } return [re, im]; }
+      const yr = new Float64Array(n), yi = new Float64Array(n);
+      for (const [a, b] of parts) for (let i = 0; i < n; i++) { const q = a[i] * a[i] + b[i] * b[i]; yr[i] += a[i] / q; yi[i] -= b[i] / q; }
+      for (let i = 0; i < n; i++) { const q = yr[i] * yr[i] + yi[i] * yi[i]; re[i] = yr[i] / q; im[i] = -yi[i] / q; }
+      return [re, im];
+    };
+    return ev(this.tree);
+  }
+  timeConstants() { return this.elements.filter(([t]) => ["C", "CPE", "W", "Wo", "Ws", "G", "TLM", "TLMQ"].includes(t)).length; }
+  seriesBlocks() {
+    const top = this.tree[0] === "s" ? this.tree[1] : [this.tree], out = [];
+    for (const nd of top) if (nd[0] === "p" && nd[1].length === 2 && nd[1].every(b => b[0] === "e")) {
+      const kinds = nd[1].map(b => b[1]).sort();
+      if ((kinds[0] === "CPE" || kinds[0] === "C") && kinds[1] === "R")
+        out.push([kinds[0], nd[1].find(b => b[1] === "R")[2], nd[1].find(b => b[1] !== "R")[2]]);
+    }
+    return out;
+  }
+}
+
+// ------------------------------------------------------------------------------------------
+// small linear algebra
+// ------------------------------------------------------------------------------------------
+function solveSym(A, b) {                       // Gaussian elimination with partial pivoting
+  const n = b.length, M = A.map((r, i) => [...r, b[i]]);
+  for (let c = 0; c < n; c++) {
+    let piv = c; for (let r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[piv][c])) piv = r;
+    if (Math.abs(M[piv][c]) < 1e-300) return null;
+    [M[c], M[piv]] = [M[piv], M[c]];
+    for (let r = c + 1; r < n; r++) { const f = M[r][c] / M[c][c]; if (f) for (let k = c; k <= n; k++) M[r][k] -= f * M[c][k]; }
+  }
+  const x = new Array(n).fill(0);
+  for (let r = n - 1; r >= 0; r--) { let s = M[r][n]; for (let k = r + 1; k < n; k++) s -= M[r][k] * x[k]; x[r] = s / M[r][r]; }
+  return x;
+}
+function invert(A) {
+  const n = A.length, cols = [];
+  for (let j = 0; j < n; j++) { const e = new Array(n).fill(0); e[j] = 1; const c = solveSym(A, e); if (!c) return null; cols.push(c); }
+  return A.map((_, i) => cols.map(c => c[i]));
+}
+function lstsq(A, b) {                          // Householder QR least squares; A: array of rows
+  const m = A.length, n = A[0].length, R = A.map(r => r.slice()), y = b.slice();
+  for (let k = 0; k < n; k++) {
+    let norm = 0; for (let i = k; i < m; i++) norm += R[i][k] * R[i][k]; norm = Math.sqrt(norm);
+    if (norm < 1e-300) continue;
+    const alpha = R[k][k] > 0 ? -norm : norm; const v = new Array(m).fill(0);
+    for (let i = k; i < m; i++) v[i] = R[i][k]; v[k] -= alpha;
+    let vv = 0; for (let i = k; i < m; i++) vv += v[i] * v[i]; if (vv < 1e-300) continue;
+    for (let j = k; j < n; j++) { let s = 0; for (let i = k; i < m; i++) s += v[i] * R[i][j]; s = 2 * s / vv; for (let i = k; i < m; i++) R[i][j] -= s * v[i]; }
+    let s = 0; for (let i = k; i < m; i++) s += v[i] * y[i]; s = 2 * s / vv; for (let i = k; i < m; i++) y[i] -= s * v[i];
+  }
+  const x = new Array(n).fill(0);
+  for (let r = n - 1; r >= 0; r--) { let s = y[r]; for (let k = r + 1; k < n; k++) s -= R[r][k] * x[k]; x[r] = Math.abs(R[r][r]) > 1e-14 * Math.abs(R[0][0]) ? s / R[r][r] : 0; }
+  return x;
+}
+function nnls(A, b, free = [], maxIter = 0) {   // Lawson–Hanson; columns in `free` are unconstrained
+  const m = A.length, n = A[0].length; maxIter = maxIter || 3 * n;
+  const x = new Array(n).fill(0), P = new Array(n).fill(false);
+  free.forEach(j => P[j] = true);
+  const AtA = Array.from({ length: n }, () => new Array(n).fill(0)), Atb = new Array(n).fill(0);
+  for (let i = 0; i < m; i++) { const r = A[i]; for (let j = 0; j < n; j++) { if (!r[j]) continue; Atb[j] += r[j] * b[i]; for (let k = j; k < n; k++) AtA[j][k] += r[j] * r[k]; } }
+  for (let j = 0; j < n; j++) for (let k = 0; k < j; k++) AtA[j][k] = AtA[k][j];
+  const solveP = () => {
+    const idx = []; for (let j = 0; j < n; j++) if (P[j]) idx.push(j);
+    const z = new Array(n).fill(0); if (!idx.length) return z;
+    const sub = idx.map(i => idx.map(j => AtA[i][j] + (i === j ? 1e-14 * (AtA[i][i] || 1) : 0)));
+    const s = solveSym(sub, idx.map(i => Atb[i])); if (s) idx.forEach((j, k) => z[j] = s[k]); return z;
+  };
+  if (free.length) { const z = solveP(); free.forEach(j => x[j] = z[j]); }
+  for (let it = 0; it < maxIter; it++) {
+    const wv = Atb.map((v, j) => v - AtA[j].reduce((s, a, k) => s + a * x[k], 0));
+    let jmax = -1, wmax = 1e-12 * Math.max(...Atb.map(Math.abs), 1e-300);
+    for (let j = 0; j < n; j++) if (!P[j] && wv[j] > wmax) { wmax = wv[j]; jmax = j; }
+    if (jmax < 0) break;
+    P[jmax] = true;
+    for (let inner = 0; inner < 3 * n; inner++) {
+      const z = solveP();
+      const bad = []; for (let j = 0; j < n; j++) if (P[j] && !free.includes(j) && z[j] <= 0) bad.push(j);
+      if (!bad.length) { for (let j = 0; j < n; j++) x[j] = z[j]; break; }
+      let alpha = 1; for (const j of bad) alpha = Math.min(alpha, x[j] / (x[j] - z[j]));
+      for (let j = 0; j < n; j++) { x[j] += alpha * (z[j] - x[j]); if (P[j] && !free.includes(j) && x[j] < 1e-15) { P[j] = false; x[j] = 0; } }
+    }
+  }
+  return x;
+}
+const median = (a) => { const s = Array.from(a).sort((x, y) => x - y), n = s.length; return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2; };
+
+// ------------------------------------------------------------------------------------------
+// spectra
+// ------------------------------------------------------------------------------------------
+function makeSpectrum(f, zr, zi, name) {
+  const idx = f.map((_, i) => i).filter(i => isFinite(f[i]) && f[i] > 0 && isFinite(zr[i]) && isFinite(zi[i]));
+  idx.sort((a, b) => f[b] - f[a]);
+  const seen = new Set(), keep = idx.filter(i => !seen.has(f[i]) && seen.add(f[i]));
+  return { name, f: keep.map(i => f[i]), re: keep.map(i => zr[i]), im: keep.map(i => zi[i]) };
+}
+function num(v) {
+  if (v === null || v === undefined) return null;
+  if (typeof v === "number") return isFinite(v) ? v : null;
+  let s = String(v).trim().replace("\u2212", "-"); if (!s) return null;
+  if (/^[-+]?\d+,\d+([eE][-+]?\d+)?$/.test(s)) s = s.replace(",", ".");
+  const x = Number(s); return isFinite(x) && s !== "" ? x : null;
+}
+function imagIsMinus(header, values) {
+  const h = (header || "").replace(/\s+/g, "").toLowerCase();
+  if (h.startsWith("-") || h.includes("-z''") || h.includes("-im") || h.includes("-zim") || h.includes('-z"') || h.includes("minus")) return true;
+  if (h && (h.includes("z''") || h.includes("zim") || h.includes("im(z)") || h.includes("imag") || h.includes('z"'))) return false;
+  return median(values) > 0;
+}
+function build(f, a, b, name, fmt, imagHeader) {
+  let re, im;
+  if (fmt === "polar") {
+    const neg = median(b) > 0;
+    re = a.map((m, i) => m * Math.cos((neg ? -1 : 1) * b[i] * Math.PI / 180));
+    im = a.map((m, i) => m * Math.sin((neg ? -1 : 1) * b[i] * Math.PI / 180));
+  } else {
+    const minus = fmt === "minus_z" ? true : fmt === "z" ? false : imagIsMinus(imagHeader, b);
+    re = a; im = b.map(v => minus ? -v : v);
+  }
+  return makeSpectrum(f, re, im, name);
+}
+function splitLine(line) {
+  if (line.includes("\t")) return line.split("\t");
+  if (line.includes(";")) return line.split(";");
+  if ((line.match(/,/g) || []).length >= 2) return line.split(",");
+  return line.trim().split(/\s+/);
+}
+function fromText(text, name = "Sample", fmt = "auto") {
+  const rows = []; let header = "";
+  for (const raw of String(text).split(/\r?\n/)) {
+    const line = raw.trim(); if (!line) continue;
+    const vals = splitLine(line).filter(p => p.trim() !== "").map(num);
+    if (vals.length >= 3 && vals.slice(0, 3).every(v => v !== null)) rows.push(vals.slice(0, 3));
+    else if (!rows.length) header = line;
+  }
+  if (rows.length < 3) throw new Error("need at least 3 rows with three numbers (frequency, Z', Z'')");
+  const hp = header ? header.split(/\t|;|,(?!\d)|\s{2,}/) : [];
+  return build(rows.map(r => r[0]), rows.map(r => r[1]), rows.map(r => r[2]), name, fmt, hp.length >= 3 ? hp[2] : header);
+}
+function parseColumn(text) { return String(text).trim().split(/[\s;]+|,(?!\d)/).map(num).filter(v => v !== null); }
+function fromColumns(fText, reText, imText, name = "Sample", imagIs = "auto") {
+  const f = parseColumn(fText), a = parseColumn(reText), b = parseColumn(imText);
+  if (!(f.length === a.length && a.length === b.length)) throw new Error(`columns have different lengths: ${f.length}, ${a.length}, ${b.length}`);
+  if (f.length < 3) throw new Error("need at least 3 values in each column");
+  return build(f, a, b, name, imagIs, "");
+}
+function fromGrid(grid, stem, fmt = "auto") {        // grid: array of rows (strings/numbers)
+  const ncol = Math.max(0, ...grid.map(r => r.length));
+  grid = grid.map(r => { const x = r.slice(); while (x.length < ncol) x.push(null); return x; });
+  const starts = [];
+  for (let c = 0; c < ncol - 2; c++) {
+    for (let r = 0; r < Math.min(grid.length, 60); r++) {
+      if ([0, 1, 2].every(k => num(grid[r][c + k]) !== null)) {
+        const prevNum = c > 0 && num(grid[r][c - 1]) !== null;
+        if (!prevNum && (!starts.length || c >= starts[starts.length - 1][0] + 3)) starts.push([c, r]);
+        break;
+      }
+    }
+  }
+  if (!starts.length) throw new Error("no three-column numeric data found");
+  const out = [], hw = ["freq", "hz", "z'", "zre", "real", "ohm"];
+  starts.forEach(([c, r0], k) => {
+    const texts = []; for (let r = 0; r < r0; r++) { const v = grid[r][c]; if (v !== null && v !== "" && num(v) === null) texts.push(String(v).trim()); }
+    let imagHdr = ""; for (let r = r0 - 1; r >= 0; r--) { const v = grid[r][c + 2]; if (v !== null && v !== "" && num(v) === null) { imagHdr = String(v); break; } }
+    const labels = texts.filter(t => !hw.some(w => t.toLowerCase().includes(w)));
+    let name = labels[0] || (starts.length === 1 ? stem : `${stem} ${k + 1}`);
+    const f = [], a = [], b = [];
+    for (let r = r0; r < grid.length; r++) {
+      const v = [0, 1, 2].map(j => num(grid[r][c + j]));
+      if (v.includes(null)) { if (v.every(x => x === null)) break; continue; }
+      f.push(v[0]); a.push(v[1]); b.push(v[2]);
+    }
+    while (out.some(s => s.name === name)) name += "'";
+    out.push(build(f, a, b, name, fmt, imagHdr));
+  });
+  return out;
+}
+function textToGrid(text) {
+  const lines = String(text).split(/\r?\n/);
+  const sample = lines.slice(0, 20).join("\n");
+  const sep = sample.includes("\t") ? "\t" : sample.includes(";") ? ";" : sample.includes(",") ? "," : null;
+  return lines.filter(l => l.trim() !== "").map(l => sep ? l.split(sep) : l.trim().split(/\s+/));
+}
+async function unzipXlsxGrid(buffer, sheetIndex = 0) {   // minimal XLSX reader (no libraries)
+  const dv = new DataView(buffer), u8 = new Uint8Array(buffer);
+  let eocd = -1; for (let i = u8.length - 22; i >= 0; i--) if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  if (eocd < 0) throw new Error("not a valid .xlsx file");
+  const nEntries = dv.getUint16(eocd + 10, true); let p = dv.getUint32(eocd + 16, true);
+  const files = {};
+  for (let k = 0; k < nEntries; k++) {
+    const method = dv.getUint16(p + 10, true), csize = dv.getUint32(p + 20, true);
+    const nlen = dv.getUint16(p + 28, true), elen = dv.getUint16(p + 30, true), clen = dv.getUint16(p + 32, true);
+    const off = dv.getUint32(p + 42, true);
+    const name = new TextDecoder().decode(u8.subarray(p + 46, p + 46 + nlen));
+    files[name] = { method, csize, off }; p += 46 + nlen + elen + clen;
+  }
+  async function read(name) {
+    const e = files[name]; if (!e) return null;
+    const lnlen = dv.getUint16(e.off + 26, true), lelen = dv.getUint16(e.off + 28, true);
+    const data = u8.subarray(e.off + 30 + lnlen + lelen, e.off + 30 + lnlen + lelen + e.csize);
+    if (e.method === 0) return new TextDecoder().decode(data);
+    const ds = new DecompressionStream("deflate-raw");
+    const stream = new Blob([data]).stream().pipeThrough(ds);
+    return await new Response(stream).text();
+  }
+  const xml = (s) => new DOMParser().parseFromString(s, "application/xml");
+  const shared = [];
+  const ss = await read("xl/sharedStrings.xml");
+  if (ss) for (const si of xml(ss).getElementsByTagName("si")) shared.push(Array.from(si.getElementsByTagName("t")).map(t => t.textContent).join(""));
+  const wb = xml(await read("xl/workbook.xml")), rels = xml(await read("xl/_rels/workbook.xml.rels"));
+  const sheets = Array.from(wb.getElementsByTagName("sheet"));
+  const rid = sheets[sheetIndex].getAttribute("r:id") || sheets[sheetIndex].getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "id");
+  const rel = Array.from(rels.getElementsByTagName("Relationship")).find(r => r.getAttribute("Id") === rid);
+  let target = rel.getAttribute("Target"); target = target.startsWith("/") ? target.slice(1) : "xl/" + target.replace(/^\.\//, "");
+  const sh = xml(await read(target)), grid = [];
+  const colIdx = (ref) => { const m = ref.match(/^([A-Z]+)/)[1]; let c = 0; for (const ch of m) c = c * 26 + ch.charCodeAt(0) - 64; return c - 1; };
+  for (const row of sh.getElementsByTagName("row")) {
+    const r = Number(row.getAttribute("r")) - 1;
+    for (const c of row.getElementsByTagName("c")) {
+      const t = c.getAttribute("t"), v = c.getElementsByTagName("v")[0], ci = colIdx(c.getAttribute("r"));
+      let val = null;
+      if (t === "s" && v) val = shared[Number(v.textContent)];
+      else if (t === "inlineStr") val = Array.from(c.getElementsByTagName("t")).map(x => x.textContent).join("");
+      else if (v) val = t === "str" ? v.textContent : Number(v.textContent);
+      while (grid.length <= r) grid.push([]);
+      grid[r][ci] = val;
+    }
+  }
+  return grid.map(r => Array.from(r, v => v === undefined ? null : v));
+}
+
+// ------------------------------------------------------------------------------------------
+// fitting
+// ------------------------------------------------------------------------------------------
+const LOG_LB = -20, LOG_UB = 12, N_LB = 0.3, N_UB = 1.0;
+const LIN_SCALE = 1e-6;                     // signed inductance fitted in µH
+// fitted variables u: log10(p) for positive parameters, n itself for CPE exponents, µH for signed L;
+// box bounds are enforced by projection (projected Levenberg–Marquardt)
+const boundsOf = (kinds) => [kinds.map(k => k === "log" ? LOG_LB : k === "n" ? N_LB : -1e4),
+                             kinds.map(k => k === "log" ? LOG_UB : k === "n" ? N_UB : 1e4)];
+function toP(kinds, u) { return u.map((x, i) => kinds[i] === "log" ? Math.pow(10, x) : kinds[i] === "n" ? x : x * LIN_SCALE); }
+function toU(kinds, p) { return p.map((x, i) => kinds[i] === "log" ? Math.log10(Math.max(x, 1e-30)) : kinds[i] === "n" ? Math.min(Math.max(x, N_LB), N_UB) : x / LIN_SCALE); }
+function dpdu(kinds, u, p) { return u.map((x, i) => kinds[i] === "log" ? p[i] * Math.LN10 : kinds[i] === "n" ? 1 : LIN_SCALE); }
+
+function initialGuess(c, sp, reverse) {
+  const f = sp.f, re = sp.re, im = sp.im, w = f.map(x => 2 * Math.PI * x);
+  const zmax = Math.max(...re.map((r, i) => Math.hypot(r, im[i])));
+  const Rs = Math.max(Math.min(...re), 1e-4 * zmax);
+  const iLow = f.indexOf(Math.min(...f));
+  const Rpol = Math.max(re[iLow] - Rs, 0.05 * zmax);
+  let ipk = 0; for (let i = 1; i < f.length; i++) if (-im[i] > -im[ipk]) ipk = i;
+  const wpk = w[ipk];
+  const top = c.tree[0] === "s" ? c.tree[1] : [c.tree];
+  const seriesR = top.filter(n => n[0] === "e" && n[1] === "R").map(n => n[2]);
+  for (const nm of ["R0", "Rs"]) if (nm in c.start && !seriesR.includes(nm)) seriesR.push(nm);
+  const nOther = c.elements.filter(([t, n]) => (t === "R" && !seriesR.includes(n)) || ["Wo", "Ws", "G"].includes(t)).length;
+  const share = Rpol / Math.max(nOther, 1);
+  const caps = c.elements.filter(([t, n]) => (t === "C" || t === "CPE") && !n.endsWith("9")).map(([, n]) => n);
+  let spread = caps.length > 1 ? caps.map((_, i) => 1.5 - 3 * i / (caps.length - 1)) : [0];
+  if (reverse) spread = spread.reverse();
+  const wcap = {}; caps.forEach((n, i) => wcap[n] = wpk * Math.pow(10, spread[i]));
+  const p = new Array(c.nParams).fill(1), wmin = Math.min(...w), wmax = Math.max(...w);
+  for (const [t, n] of c.elements) {
+    const s = c.start[n];
+    if ((t === "C" || t === "CPE") && n.endsWith("9")) { p[s] = 0.05 / (wmax * Math.max(...re)); if (t === "CPE") p[s + 1] = 0.95; }
+    else if (t === "R") p[s] = seriesR.includes(n) ? Rs / Math.max(seriesR.length, 1) : share;
+    else if (t === "C") p[s] = 1 / (wcap[n] * share);
+    else if (t === "CPE") { p[s] = 1 / (wcap[n] * share); p[s + 1] = 0.85; }
+    else if (t === "L") { const ind = f.map((_, i) => i).filter(i => im[i] > 0); p[s] = ind.length ? median(ind.map(i => im[i] / w[i])) : 1e-7; }
+    else if (t === "Ls") { const k = Math.max(3, Math.floor(f.length / 15)); p[s] = median(f.slice(0, k).map((_, i) => im[i] / w[i])); }
+    else if (t === "W") p[s] = Math.max(Math.abs(im[iLow]) * Math.sqrt(wmin), 1e-3 * share);
+    else if (t === "Wo" || t === "Ws") { p[s] = share; p[s + 1] = 1 / wmin; }
+    else if (t === "G") { p[s] = share; p[s + 1] = 1 / wpk; }
+    else if (t === "TLM") { p[s] = share; p[s + 1] = share; p[s + 2] = 1 / (wpk * share); p[s + 3] = 0.85; }
+    else if (t === "TLMQ") { p[s] = share; p[s + 1] = 1 / (wpk * share); p[s + 2] = 0.85; }
+  }
+  return p;
+}
+
+function residualFn(c, sp, weighting) {
+  const w = sp.f.map(x => 2 * Math.PI * x), N = w.length;
+  const wr = new Float64Array(N), wi = new Float64Array(N);
+  for (let i = 0; i < N; i++) {
+    const m = Math.hypot(sp.re[i], sp.im[i]);
+    if (weighting === "unit") { wr[i] = wi[i] = 1; }
+    else if (weighting === "proportional") { wr[i] = Math.max(Math.abs(sp.re[i]), 1e-3 * m); wi[i] = Math.max(Math.abs(sp.im[i]), 1e-3 * m); }
+    else { wr[i] = wi[i] = m; }
+  }
+  return (u) => {
+    const p = toP(c.kinds, u); const [re, im] = c.impedance(p, w); const r = new Float64Array(2 * N);
+    for (let i = 0; i < N; i++) { r[i] = (re[i] - sp.re[i]) / wr[i]; r[N + i] = (im[i] - sp.im[i]) / wi[i]; if (!isFinite(r[i])) r[i] = 1e10; if (!isFinite(r[N + i])) r[N + i] = 1e10; }
+    return r;
+  };
+}
+function jacobian(fun, u, r0, ub) {
+  const k = u.length, J = Array.from({ length: r0.length }, () => new Float64Array(k));
+  for (let j = 0; j < k; j++) {
+    let h = 1e-6 * Math.max(1, Math.abs(u[j]));
+    if (ub && u[j] + h > ub[j]) h = -h;                       // step inwards at an upper bound
+    const uu = u.slice(); uu[j] += h; const r1 = fun(uu);
+    for (let i = 0; i < r0.length; i++) J[i][j] = (r1[i] - r0[i]) / h;
+  }
+  return J;
+}
+// Levenberg–Marquardt with robust losses (iteratively reweighted, as scipy's least_squares):
+// loss "linear" | "soft_l1" | "cauchy", applied to every residual r/scale
+const RHO = {
+  linear: [(z) => z, (z) => 1],
+  soft_l1: [(z) => 2 * (Math.sqrt(1 + z) - 1), (z) => 1 / Math.sqrt(1 + z)],
+  cauchy: [(z) => Math.log1p(z), (z) => 1 / (1 + z)],
+};
+function lm(fun, u0, loss = "linear", scale = 1, maxIter = 200, tol = 1e-10, bounds = null, maxStep = null) {
+  const [rho, drho] = RHO[loss], c2 = scale * scale;
+  const [lb, ub] = bounds || [u0.map(() => -Infinity), u0.map(() => Infinity)];
+  const proj = (v) => v.map((x, i) => Math.min(Math.max(x, lb[i]), ub[i]));
+  let u = proj(u0), r = fun(u); const N2 = r.length, k = u.length;
+  const cost = (rr) => { let s = 0; for (let i = 0; i < N2; i++) s += c2 * rho(rr[i] * rr[i] / c2); return s; };
+  let c0 = cost(r), lam = 1e-2, nfev = 1;
+  for (let it = 0; it < maxIter; it++) {
+    const J = jacobian(fun, u, r, ub); nfev += k;
+    const A = Array.from({ length: k }, () => new Array(k).fill(0)), g = new Array(k).fill(0);
+    for (let i = 0; i < N2; i++) {
+      const wi = drho(r[i] * r[i] / c2), Ji = J[i];
+      for (let a = 0; a < k; a++) { if (!Ji[a]) continue; g[a] += wi * Ji[a] * r[i]; for (let b = a; b < k; b++) A[a][b] += wi * Ji[a] * Ji[b]; }
+    }
+    for (let a = 0; a < k; a++) for (let b = 0; b < a; b++) A[a][b] = A[b][a];
+    let improved = false;
+    for (let tries = 0; tries < 14; tries++) {
+      const M = A.map((row, a) => row.map((v, b) => v + (a === b ? lam * (A[a][a] + 1e-12) : 0)));
+      const d = solveSym(M, g.map(x => -x)); if (!d) { lam *= 10; continue; }
+      if (maxStep) {                            // trust-region-like cap on the step
+        let f = 1; d.forEach((x, i) => { if (Math.abs(x) > maxStep[i]) f = Math.min(f, maxStep[i] / Math.abs(x)); });
+        if (f < 1) for (let i = 0; i < k; i++) d[i] *= f;
+      }
+      const un = proj(u.map((x, i) => x + d[i])), rn = fun(un); nfev++;
+      const cn = cost(rn);
+      if (cn < c0) {
+        const rel = (c0 - cn) / Math.max(c0, 1e-300), step = Math.sqrt(un.reduce((s, x, i) => s + (x - u[i]) ** 2, 0));
+        u = un; r = rn; c0 = cn; lam = Math.max(lam / 3, 1e-12); improved = true;
+        if (rel < tol || step < tol) return { u, r, cost: c0, nfev };
+        break;
+      }
+      lam *= 8;
+    }
+    if (!improved) break;
+  }
+  return { u, r, cost: c0, nfev };
+}
+
+function fit(sp, circuit, opt = {}) {
+  const { robust = true, weighting = "modulus", nStarts = 8, seed = 1, threshold = 4 } = opt;
+  const c = circuit instanceof Circuit ? circuit : new Circuit(circuit);
+  const N = sp.f.length; if (2 * N <= c.nParams) throw new Error(`${c.string} has ${c.nParams} parameters but only ${N} points`);
+  const fun = residualFn(c, sp, weighting), kinds = c.kinds;
+  let rng = seed; const rand = () => { rng = (rng * 16807) % 2147483647; return rng / 2147483647; };
+  const gauss = () => Math.sqrt(-2 * Math.log(rand() + 1e-12)) * Math.cos(2 * Math.PI * rand());
+  const base = [toU(kinds, initialGuess(c, sp, false)), toU(kinds, initialGuess(c, sp, true))];
+  if (opt.p0) base.unshift(toU(kinds, opt.p0));
+  const starts = base.slice();
+  while (starts.length < Math.max(nStarts, base.length)) {
+    const b = base[starts.length % base.length];
+    starts.push(b.map((x, i) => kinds[i] === "log" ? x + gauss() : kinds[i] === "n" ? 0.6 + 0.4 * rand() : x));
+  }
+  const bnd = boundsOf(kinds);
+  const cap = kinds.map(k => k === "log" ? 0.7 : k === "n" ? 0.1 : 0.5);      // max change per iteration
+  const [loss, scale] = robust ? ["soft_l1", 0.02] : ["linear", 1];
+  let best = null;
+  for (const u0 of starts) { const r = lm(fun, u0, loss, scale, opt.maxIter || 300, 1e-10, bnd, cap); if (!best || r.cost < best.cost) best = r; }
+  let outliers = new Array(N).fill(false);
+  const dist = (r) => Array.from({ length: N }, (_, i) => Math.hypot(r[i], r[N + i]));
+  if (robust) {                                   // Cauchy refinement: follow the trend
+    let d = dist(best.r), s = Math.max(1.4826 * median(d), 1e-6);
+    best = lm(fun, best.u, "cauchy", 1.5 * s, opt.maxIter || 300, 1e-10, bnd, cap);
+    d = dist(best.r); s = Math.max(1.4826 * median(d), 1e-6);
+    outliers = d.map(x => x > Math.max(threshold * s, 0.002));
+  }
+  return statistics(c, sp, fun, best, outliers, weighting, robust);
+}
+
+function statistics(c, sp, fun, best, outliers, weighting, robust) {
+  const N = sp.f.length, k = c.nParams, u = best.u, p = toP(c.kinds, u), r = best.r;
+  const inl = outliers.map(o => !o), Nin = inl.filter(Boolean).length;
+  const rows = []; for (let i = 0; i < N; i++) if (inl[i]) rows.push(i, N + i);
+  let chi2 = 0; for (const i of rows) chi2 += r[i] * r[i];
+  const nobs = 2 * Nin, dof = Math.max(nobs - k, 1), red = chi2 / dof;
+  const J = jacobian(fun, u, r, boundsOf(c.kinds)[1]), JtJ = Array.from({ length: k }, () => new Array(k).fill(0));
+  for (const i of rows) for (let a = 0; a < k; a++) for (let b = 0; b < k; b++) JtJ[a][b] += J[i][a] * J[i][b];
+  const colnorm = JtJ.map((row, a) => Math.sqrt(row[a])), cmax = Math.max(...colnorm);
+  const reg = JtJ.map((row, a) => row.map((v, b) => v + (a === b ? 1e-12 * (row[a] || 1) : 0)));
+  const cov = invert(reg) || JtJ.map(row => row.map(() => NaN));
+  const g = dpdu(c.kinds, u, p);
+  const sdU = cov.map((row, a) => Math.sqrt(Math.abs(row[a]) * red));
+  const sd = sdU.map((s, a) => s * g[a]);
+  const rel = sd.map((s, a) => 100 * s / Math.abs(p[a]));
+  const corr = cov.map((row, a) => row.map((v, b) => v / Math.sqrt(Math.abs(cov[a][a] * cov[b][b]))));
+  const w = sp.f.map(x => 2 * Math.PI * x), [fr, fi] = c.impedance(p, w);
+  const aic = nobs * Math.log(chi2 / nobs) + 2 * k, aicc = aic + 2 * k * (k + 1) / Math.max(nobs - k - 1, 1);
+  let mr = 0, mi = 0; for (let i = 0; i < N; i++) if (inl[i]) { mr += sp.re[i]; mi += sp.im[i]; } mr /= Nin; mi /= Nin;
+  let sres = 0, stot = 0; for (let i = 0; i < N; i++) if (inl[i]) { sres += (sp.re[i] - fr[i]) ** 2 + (sp.im[i] - fi[i]) ** 2; stot += (sp.re[i] - mr) ** 2 + (sp.im[i] - mi) ** 2; }
+  const zmax = Math.max(...sp.re.map((x, i) => Math.hypot(x, sp.im[i])));
+  const flags = []; let critical = false;
+  c.names.forEach((nm, i) => {
+    if (colnorm[i] < 1e-6 * cmax) { flags.push(`${nm} has no influence on the fit`); critical = true; rel[i] = Infinity; return; }
+    if (!isFinite(rel[i]) || rel[i] > 100) { flags.push(`${nm} undetermined (rel. error ${isFinite(rel[i]) ? rel[i].toFixed(0) : "∞"} %)`); critical = true; }
+    if (c.kinds[i] === "log" && c.units[i] === "Ω" && p[i] > 1e4 * zmax) { flags.push(`${nm} is effectively infinite`); critical = true; }
+    if (c.kinds[i] === "log" && c.units[i] === "Ω" && p[i] < 1e-4 * zmax) { flags.push(`${nm} is negligible`); critical = true; }
+    if (c.kinds[i] === "log" && (u[i] <= LOG_LB + 1e-3 || u[i] >= LOG_UB - 1e-3)) { flags.push(`${nm} at bound`); critical = true; }
+    if (c.kinds[i] === "n") {
+      if (p[i] < N_LB + 1e-3) { flags.push(`${nm} at its lower bound (0.3)`); critical = true; }
+      else if (p[i] < 0.5) flags.push(`${nm} = ${p[i].toFixed(2)} < 0.5: strongly distributed / diffusion-like`);
+      else if (p[i] > 0.98) flags.push(`${nm} ≈ 1: ideal capacitor (simpler model possible)`);
+    }
+  });
+  for (let a = 0; a < k; a++) for (let b = a + 1; b < k; b++) if (Math.abs(corr[a][b]) > 0.98) flags.push(`${c.names[a]} / ${c.names[b]} strongly correlated (r = ${corr[a][b].toFixed(3)})`);
+  const res = { circuit: c, name: sp.name, p, sd, rel, corr, chi2, redChi2: red, rmsPct: 100 * Math.sqrt(chi2 / nobs),
+    r2: 1 - sres / stot, aic, aicc, valid: !critical, flags, f: sp.f, re: sp.re, im: sp.im, fitRe: Array.from(fr), fitIm: Array.from(fi),
+    outliers, nOutliers: outliers.filter(Boolean).length, robust, weighting, derived: [] };
+  reorderArcs(res);
+  res.derived = derived(c, res.p);
+  return res;
+}
+function reorderArcs(res) {
+  const c = res.circuit, p = res.p, perm = c.names.map((_, i) => i);
+  for (const kind of ["CPE", "C"]) {
+    const bl = c.seriesBlocks().filter(b => b[0] === kind); if (bl.length < 2) continue;
+    const slots = bl.map(b => [c.names.indexOf(b[1]), ...c.names.map((nm, i) => (nm === b[2] || nm.startsWith(b[2] + "_")) ? i : -1).filter(i => i >= 0)]);
+    const tau = (b) => { const R = p[c.names.indexOf(b[1])]; return kind === "C" ? R * p[c.names.indexOf(b[2])] : Math.pow(R * p[c.names.indexOf(b[2] + "_Q")], 1 / p[c.names.indexOf(b[2] + "_n")]); };
+    const order = bl.map((_, i) => i).sort((a, b) => tau(bl[a]) - tau(bl[b]));
+    slots.forEach((dst, k) => dst.forEach((d, j) => perm[d] = slots[order[k]][j]));
+  }
+  if (perm.some((v, i) => v !== i)) { for (const key of ["p", "sd", "rel"]) res[key] = perm.map(i => res[key][i]); res.corr = perm.map(i => perm.map(j => res.corr[i][j])); }
+}
+function derived(c, p) {
+  const val = (n) => p[c.names.indexOf(n)], out = [];
+  (function walk(node) {
+    if (node[0] === "e") return;
+    if (node[0] === "p" && node[1].length === 2) {
+      for (const [cap, other] of [[node[1][0], node[1][1]], [node[1][1], node[1][0]]]) {
+        if (cap[0] !== "e" || !["C", "CPE"].includes(cap[1]) || cap[2].endsWith("9")) continue;
+        const R = other[0] === "e" && other[1] === "R" ? other[2] : (other[0] === "s" && other[1][0][0] === "e" && other[1][0][1] === "R" ? other[1][0][2] : null);
+        if (!R) continue;
+        const Rv = val(R); let C, tau;
+        if (cap[1] === "C") { C = val(cap[2]); tau = Rv * C; }
+        else { const Q = val(cap[2] + "_Q"), n = val(cap[2] + "_n"); C = Math.pow(Q, 1 / n) * Math.pow(Rv, (1 - n) / n); tau = Math.pow(Rv * Q, 1 / n); }
+        out.push({ element: `p(${R},${cap[2]})`, Ceff: C, tau, fc: 1 / (2 * Math.PI * tau) });
+      }
+    }
+    node[1].forEach(walk);
+  })(c.tree);
+  for (const [t, n] of c.elements) if (["Wo", "Ws", "G"].includes(t)) { const tau = val(n + "_tau"); out.push({ element: n, tau, fc: 1 / (2 * Math.PI * tau) }); }
+  return out;
+}
+function predict(res, f) { const [re, im] = res.circuit.impedance(res.p, f.map(x => 2 * Math.PI * x)); return [Array.from(re), Array.from(im)]; }
+
+async function search(sp, library, opt = {}, progress) {
+  const fits = [];
+  for (let i = 0; i < library.length; i++) {
+    try { fits.push(fit(sp, new Circuit(library[i].circuit, library[i].name), { ...opt, nStarts: opt.screenStarts || 3, maxIter: 120 })); } catch (e) { /* skip */ }
+    if (progress && i % 4 === 0) { progress(i + 1, library.length); await new Promise(r => setTimeout(r, 0)); }
+  }
+  const rank = (a, b) => (a.valid === b.valid ? a.aicc - b.aicc : (a.valid ? -1 : 1));
+  fits.sort(rank);
+  const top = fits.slice(0, opt.refineTop || 10);
+  for (let i = 0; i < top.length; i++) {
+    const r = fit(sp, top[i].circuit, { ...opt, nStarts: opt.refineStarts || 8 });
+    if (r.chi2 <= top[i].chi2 * 1.000001) fits[fits.indexOf(top[i])] = r;
+    if (progress) { progress(library.length, library.length, i + 1, top.length); await new Promise(r => setTimeout(r, 0)); }
+  }
+  fits.sort(rank);
+  return fits;
+}
+
+// ------------------------------------------------------------------------------------------
+// Lin-KK
+// ------------------------------------------------------------------------------------------
+function linKKOnce(sp, c, maxM) {
+  const f = sp.f, N = f.length, w = f.map(x => 2 * Math.PI * x), wt = sp.re.map((x, i) => Math.hypot(x, sp.im[i]));
+  const b = [...sp.re.map((x, i) => x / wt[i]), ...sp.im.map((x, i) => x / wt[i])];
+  let best = null;
+  const mMin = Math.max(3, Math.ceil(Math.log10(Math.max(...f) / Math.min(...f))));   // ~1 RC element per decade
+  for (let M = mMin; M <= Math.min(maxM, N); M++) {
+    const tmin = 1 / Math.max(...w), tmax = 1 / Math.min(...w);
+    const tau = Array.from({ length: M }, (_, k) => tmin * Math.pow(tmax / tmin, k / (M - 1)));
+    const cols = (i) => { const re = [1, 0, 0], im = [0, w[i], -1 / w[i]]; for (const t of tau) { const d = 1 + (w[i] * t) ** 2; re.push(1 / d); im.push(-w[i] * t / d); } return [re, im]; };
+    const A = [], Afull = [];
+    for (let i = 0; i < N; i++) { const [re, im] = cols(i); Afull.push([re, im]); A[i] = re.map(v => v / wt[i]); A[N + i] = im.map(v => v / wt[i]); }
+    let x = lstsq(A, b);
+    for (let pass = 0; pass < 4; pass++) {           // Cauchy re-weighting (robust test)
+      const r = A.map((row, i) => row.reduce((acc, v, j) => acc + v * x[j], 0) - b[i]);
+      const d = Array.from({ length: N }, (_, i) => Math.hypot(r[i], r[N + i]));
+      const sc = Math.max(1.4826 * median(d), 1e-6) * 2.5, sw = d.map(v => Math.sqrt(1 / (1 + (v / sc) ** 2)));
+      x = lstsq(A.map((row, i) => row.map(v => v * sw[i % N])), b.map((v, i) => v * sw[i % N]));
+    }
+    const Rk = x.slice(3);
+    const pos = Rk.filter(v => v >= 0).reduce((s, v) => s + v, 0), neg = -Rk.filter(v => v < 0).reduce((s, v) => s + v, 0);
+    const mu = pos > 0 ? 1 - neg / pos : 0;
+    const zr = Afull.map(([re]) => re.reduce((s, v, j) => s + v * x[j], 0)), zi = Afull.map(([, im]) => im.reduce((s, v, j) => s + v * x[j], 0));
+    best = { M, mu, c, resRe: sp.re.map((v, i) => (v - zr[i]) / wt[i]), resIm: sp.im.map((v, i) => (v - zi[i]) / wt[i]), f };
+    if (mu <= c) break;
+  }
+  const all = [...best.resRe, ...best.resIm];
+  best.rms = Math.sqrt(all.reduce((s, v) => s + v * v, 0) / all.length); best.max = Math.max(...all.map(Math.abs));
+  best.verdict = best.max < 0.01 ? "PASS" : best.max < 0.02 ? "OK" : "CHECK";
+  best.failed = best.resRe.map((v, i) => Math.hypot(v, best.resIm[i]) > 0.02);
+  best.failedF = best.f.filter((_, i) => best.failed[i]);
+  return best;
+}
+function linKK(sp, c = 0.85, maxM = 60) {
+  let r = linKKOnce(sp, c, maxM);
+  if (r.max > 0.02) for (const c2 of [0.75, 0.65, 0.5]) { const r2 = linKKOnce(sp, c2, maxM); if (r2.max < r.max) r = r2; if (r.max <= 0.02) break; }
+  return r;
+}
+
+// ------------------------------------------------------------------------------------------
+// DRT (Tikhonov, non-negative, discrepancy principle)
+// ------------------------------------------------------------------------------------------
+function drt(sp, opt = {}) {
+  const f = sp.f, N = f.length, w = f.map(x => 2 * Math.PI * x);
+  const phLow = -Math.atan2(sp.im[N - 1], sp.re[N - 1]) * 180 / Math.PI;
+  const useC = opt.capacitance === undefined ? phLow > 45 : opt.capacitance, useL = opt.inductance !== false;
+  const ext = Math.pow(10, opt.extend ?? 0.5);
+  const tmin = 1 / Math.max(...w) / ext, tmax = 1 / Math.min(...w) * ext;
+  const M = opt.nTau || Math.ceil(10 * Math.log10(tmax / tmin)) + 1;
+  const tau = Array.from({ length: M }, (_, k) => tmin * Math.pow(tmax / tmin, k / (M - 1)));
+  const dlt = Math.log(tau[1] / tau[0]);
+  const names = ["Rinf"]; if (useL) names.push("L+", "L-"); if (useC) names.push("1/C");
+  const ne = names.length, n = ne + M, wt = sp.re.map((x, i) => Math.hypot(x, sp.im[i]));
+  const A = [], b = [];
+  for (let part = 0; part < 2; part++) for (let i = 0; i < N; i++) {
+    const row = new Array(n).fill(0);
+    if (part === 0) { row[0] = 1; } else { if (useL) { row[1] = w[i]; row[2] = -w[i]; } if (useC) row[names.indexOf("1/C")] = -1 / w[i]; }
+    for (let k = 0; k < M; k++) { const x = w[i] * tau[k], d = 1 + x * x; row[ne + k] = part === 0 ? dlt / d : -dlt * x / d; }
+    A.push(row.map(v => v / wt[i])); b.push((part === 0 ? sp.re[i] : sp.im[i]) / wt[i]);
+  }
+  const s = new Array(n).fill(0); for (const row of A) row.forEach((v, j) => s[j] += v * v);
+  for (let j = 0; j < n; j++) s[j] = Math.sqrt(s[j]) || 1;
+  const As = A.map(row => row.map((v, j) => v / s[j]));
+  const solve = (lam) => {
+    const Aa = As.slice(), ba = b.slice(), sl = Math.sqrt(lam);
+    for (let i = 0; i < M - 2; i++) { const row = new Array(n).fill(0); row[ne + i] = sl / s[ne + i]; row[ne + i + 1] = -2 * sl / s[ne + i + 1]; row[ne + i + 2] = sl / s[ne + i + 2]; Aa.push(row); ba.push(0); }
+    return nnls(Aa, ba);
+  };
+  const rmsOf = (x) => { let q = 0; As.forEach((row, i) => { const r = row.reduce((acc, v, j) => acc + v * x[j], 0) - b[i]; q += r * r; }); return Math.sqrt(q / As.length); };
+  let lam = opt.lambda, x;
+  if (lam === undefined || lam === "auto") {
+    const grid = Array.from({ length: 22 }, (_, k) => Math.pow(10, -7 + k * 7 / 21));
+    const sols = grid.map(l => [l, solve(l)]), errs = sols.map(([, xx]) => rmsOf(xx)), emin = Math.min(...errs);
+    let kbest = 0; errs.forEach((e, k) => { if (e <= emin * 1.25 + 1e-12) kbest = k; });
+    [lam, x] = sols[kbest];
+  } else x = solve(Number(lam));
+  x = x.map((v, j) => v / s[j]);
+  const gamma = x.slice(ne), Rinf = x[0], L = useL ? x[1] - x[2] : 0, C = useC && x[names.indexOf("1/C")] > 0 ? 1 / x[names.indexOf("1/C")] : Infinity;
+  const zr = [], zi = [];
+  for (let i = 0; i < N; i++) {
+    let a = Rinf, c = useL ? w[i] * L : 0; if (useC && isFinite(C)) c -= 1 / (w[i] * C);
+    for (let k = 0; k < M; k++) { const q = w[i] * tau[k], d = 1 + q * q; a += gamma[k] * dlt / d; c -= gamma[k] * dlt * q / d; }
+    zr.push(a); zi.push(c);
+  }
+  const res = (zr.map((v, i) => (sp.re[i] - v) / wt[i])).concat(zi.map((v, i) => (sp.im[i] - v) / wt[i]));
+  const out = { name: sp.name, tau, fTau: tau.map(t => 1 / (2 * Math.PI * t)), gamma, Rinf, L, C, lambda: lam, f, re: sp.re, im: sp.im, drtRe: zr, drtIm: zi,
+    rmsPct: 100 * Math.sqrt(res.reduce((q, v) => q + v * v, 0) / res.length), Rpol: gamma.reduce((q, v) => q + v, 0) * dlt };
+  out.peaks = peaks(tau, gamma, dlt, Math.min(...f), Math.max(...f), opt.prominence || 0.05, opt.minFraction || 0.05);
+  return out;
+}
+function peaks(tau, g, dlt, fmin, fmax, prom, minFrac) {
+  const gmax = Math.max(...g); if (gmax <= 0) return [];
+  let idx = [];
+  for (let i = 1; i < g.length - 1; i++) {
+    if (g[i] > g[i - 1] && g[i] >= g[i + 1]) {
+      let l = i, lmin = g[i]; while (l > 0 && g[l - 1] <= g[i]) { l--; lmin = Math.min(lmin, g[l]); }
+      let r = i, rmin = g[i]; while (r < g.length - 1 && g[r + 1] <= g[i]) { r++; rmin = Math.min(rmin, g[r]); }
+      if (g[i] - Math.max(lmin, rmin) >= prom * gmax) idx.push(i);
+    }
+  }
+  if (g[0] > g[1] && g[0] > prom * gmax) idx.unshift(0);
+  if (g[g.length - 1] > g[g.length - 2] && g[g.length - 1] > prom * gmax) idx.push(g.length - 1);
+  idx = [...new Set(idx)].sort((a, b) => a - b);
+  const total = g.reduce((s, v) => s + v, 0) * dlt;
+  const bounds = [0];
+  for (let k = 0; k < idx.length - 1; k++) { let m = idx[k]; for (let j = idx[k]; j <= idx[k + 1]; j++) if (g[j] < g[m]) m = j; bounds.push(m); }
+  bounds.push(g.length);
+  return idx.map((i, k) => {
+    const R = g.slice(bounds[k], bounds[k + 1]).reduce((s, v) => s + v, 0) * dlt, fp = 1 / (2 * Math.PI * tau[i]);
+    const inside = fp >= fmin && fp <= fmax;
+    return { tau: tau[i], f: fp, gamma: g[i], R, fraction: total > 0 ? R / total : NaN, inWindow: inside, major: inside && R / total >= minFrac };
+  });
+}
+
+return { Circuit, NotationError, parse, toString, explain: (s) => explainTree(parse(s), false), canonical: (s) => toString(parse(s)),
+  ELEMENTS, fromText, fromColumns, fromGrid, textToGrid, unzipXlsxGrid, makeSpectrum, fit, search, predict, linKK, drt, median };
+})();
+if (typeof module !== "undefined") module.exports = EIS;
+</script>
+<script>/* eiskit web app – user interface (plots, data entry, fitting, DRT, export). Needs engine.js. */
+"use strict";
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
+const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const PALETTE = ["#E8413C", "#F39C3D", "#4AA83B", "#27A9E1", "#9B72CF", "#8C564B", "#E377C2", "#7F7F7F", "#BCBD22", "#17BECF"];
+const MARKERS = ["D", "o", "<", "*", "s", "^", "v", "p", "h", ">"];
+const LIT = window.EIS_LITERATURE;
+
+const state = { samples: [], fits: {}, searches: {}, drts: {}, circuit: "R0-p(R1,CPE1)", busy: false };
+
+// =========================================================================================
+// formatting
+// =========================================================================================
+function fmtNum(v, d = 4) {
+  if (v === null || v === undefined || !isFinite(v)) return "–";
+  const a = Math.abs(v);
+  if (a !== 0 && (a < 1e-3 || a >= 1e5)) return v.toExponential(d - 1).replace("e", "×10^").replace(/\^\+?(-?)0*(\d)/, "^$1$2");
+  return Number(v.toPrecision(d)).toString();
+}
+function fmtPM(v, s) {
+  if (!isFinite(s) || s <= 1e-6 * Math.abs(v)) return fmtNum(v, 3);
+  const d = Math.max(0, -Math.floor(Math.log10(Math.abs(s))) + 1);
+  if (Math.abs(v) < 1e-3 || Math.abs(v) >= 1e4) {
+    const e = Math.floor(Math.log10(Math.abs(v))), m = v / 10 ** e, ms = s / 10 ** e;
+    const dm = Math.max(0, -Math.floor(Math.log10(ms)) + 1);
+    return `(${m.toFixed(dm)} ± ${ms.toFixed(dm)})×10^${e}`;
+  }
+  return `${v.toFixed(d)} ± ${s.toFixed(d)}`;
+}
+const supHTML = (s) => esc(s).replace(/\^(-?\d+)/g, "<sup>$1</sup>");
+function elementLabel(name) {
+  const [el, part] = name.split("_");
+  const m = el.match(/^([RCL])(\d+|ct|dl|sei|film|pore|ion|ads|sol|ox|po|gb|ad|el|b|f)$/);
+  let base = el === "R0" || el === "Rs" ? "R<sub>s</sub>" : m ? `${m[1]}<sub>${m[2]}</sub>` : el;
+  const suf = { Q: "-T", n: "-P", R: "-R", tau: "-T", sigma: "-σ", Rion: "-R<sub>ion</sub>", Rct: "-R<sub>ct</sub>" }[part] || "";
+  return base + suf;
+}
+const plainLabel = (name) => elementLabel(name).replace(/<\/?sub>/g, "");
+
+// =========================================================================================
+// SVG plotting
+// =========================================================================================
+function niceTicks(lo, hi, n = 5) {
+  const span = hi - lo || 1, raw = span / n, mag = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => span / s <= n) || 10 * mag;
+  const t = []; for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9 * span; v += step) t.push(+v.toPrecision(12));
+  return t;
+}
+function tickLabel(v, log) {
+  if (log) { const e = Math.round(Math.log10(v)); return e >= -2 && e <= 2 ? String(+(10 ** e).toPrecision(3)) : `10<tspan dy="-6" font-size="0.75em">${e}</tspan>`; }
+  return String(+v.toPrecision(6));
+}
+function markerPath(m, x, y, r) {
+  switch (m) {
+    case "s": return `M${x - r},${y - r}h${2 * r}v${2 * r}h${-2 * r}z`;
+    case "D": return `M${x},${y - 1.3 * r}l${1.3 * r},${1.3 * r}l${-1.3 * r},${1.3 * r}l${-1.3 * r},${-1.3 * r}z`;
+    case "^": return `M${x},${y - 1.2 * r}l${1.2 * r},${2 * r}h${-2.4 * r}z`;
+    case "v": return `M${x},${y + 1.2 * r}l${1.2 * r},${-2 * r}h${-2.4 * r}z`;
+    case "<": return `M${x - 1.2 * r},${y}l${2 * r},${-1.2 * r}v${2.4 * r}z`;
+    case ">": return `M${x + 1.2 * r},${y}l${-2 * r},${-1.2 * r}v${2.4 * r}z`;
+    case "*": { let d = ""; for (let k = 0; k < 10; k++) { const a = Math.PI / 2 + k * Math.PI / 5, rr = k % 2 ? 0.6 * r : 1.6 * r; d += (k ? "L" : "M") + (x + rr * Math.cos(a)).toFixed(2) + "," + (y - rr * Math.sin(a)).toFixed(2); } return d + "z"; }
+    case "p": case "h": { const nS = m === "p" ? 5 : 6; let d = ""; for (let k = 0; k < nS; k++) { const a = Math.PI / 2 + 2 * Math.PI * k / nS; d += (k ? "L" : "M") + (x + 1.2 * r * Math.cos(a)).toFixed(2) + "," + (y - 1.2 * r * Math.sin(a)).toFixed(2); } return d + "z"; }
+    default: return `M${x - r},${y}a${r},${r} 0 1,0 ${2 * r},0a${r},${r} 0 1,0 ${-2 * r},0`;
+  }
+}
+function plotSVG(o) {
+  const W = o.width || 520, H = o.height || 400, m = { l: 70, r: 18, t: 16, b: 56, ...(o.margin || {}) };
+  const pw = W - m.l - m.r, ph = H - m.t - m.b;
+  const xs = [], ys = [];
+  for (const s of o.series) s.x.forEach((v, i) => { if (isFinite(v) && isFinite(s.y[i]) && (!o.xlog || v > 0) && (!o.ylog || s.y[i] > 0)) { xs.push(v); ys.push(s.y[i]); } });
+  if (!xs.length) return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"></svg>`;
+  const tx = o.xlog ? Math.log10 : (v) => v, ty = o.ylog ? Math.log10 : (v) => v;
+  let x0 = Math.min(...xs.map(tx)), x1 = Math.max(...xs.map(tx)), y0 = Math.min(...ys.map(ty)), y1 = Math.max(...ys.map(ty));
+  if (o.ymin0 && !o.ylog) y0 = Math.min(0, y0);
+  const padx = (x1 - x0 || 1) * 0.05, pady = (y1 - y0 || 1) * 0.06;
+  x0 -= padx; x1 += padx; y0 -= o.ymin0 ? 0 : pady; y1 += pady;
+  if (o.xlog) { x0 = Math.floor(x0 + 0.05) - (o.xpad ? 0 : 0); x1 = Math.ceil(x1 - 0.05); }
+  if (o.equal) {                                     // equal scaling of both axes (Nyquist)
+    const sx = (x1 - x0) / pw, sy = (y1 - y0) / ph, s = Math.max(sx, sy);
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2; x0 = cx - s * pw / 2; x1 = cx + s * pw / 2; y0 = cy - s * ph / 2; y1 = cy + s * ph / 2;
+  }
+  const X = (v) => m.l + (tx(v) - x0) / (x1 - x0) * pw, Y = (v) => m.t + ph - (ty(v) - y0) / (y1 - y0) * ph;
+  let g = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" font-family="Arial, Helvetica, sans-serif" font-size="14">`;
+  g += `<rect x="0" y="0" width="${W}" height="${H}" fill="white"/><defs><clipPath id="c${o.id}"><rect x="${m.l}" y="${m.t}" width="${pw}" height="${ph}"/></clipPath></defs>`;
+  const xt = o.xlog ? Array.from({ length: Math.round(x1 - x0) + 1 }, (_, k) => 10 ** (Math.round(x0) + k)) : niceTicks(x0, x1);
+  let yt = o.ylog ? Array.from({ length: Math.floor(y1) - Math.ceil(y0) + 1 }, (_, k) => 10 ** (Math.ceil(y0) + k)) : niceTicks(y0, y1);
+  let ySub = false;
+  if (o.ylog && yt.length < 2) { yt = niceTicks(10 ** y0, 10 ** y1, 5).filter(v => v > 0); ySub = true; }   // < 1 decade: plain ticks
+  for (const v of xt) { const x = X(v); if (x < m.l - 0.5 || x > m.l + pw + 0.5) continue; g += `<line x1="${x}" y1="${m.t + ph}" x2="${x}" y2="${m.t + ph + 6}" stroke="black" stroke-width="1.5"/><text x="${x}" y="${m.t + ph + 22}" text-anchor="middle">${tickLabel(v, o.xlog)}</text>`; }
+  for (const v of yt) { const y = Y(v); if (y < m.t - 0.5 || y > m.t + ph + 0.5) continue; g += `<line x1="${m.l - 6}" y1="${y}" x2="${m.l}" y2="${y}" stroke="black" stroke-width="1.5"/><text x="${m.l - 9}" y="${y + 5}" text-anchor="end">${tickLabel(v, o.ylog && !ySub)}</text>`; }
+  g += `<g clip-path="url(#c${o.id})">`;
+  for (const s of o.series) {
+    const pts = s.x.map((v, i) => [v, s.y[i], i]).filter(([a, b]) => isFinite(a) && isFinite(b) && (!o.xlog || a > 0) && (!o.ylog || b > 0));
+    if (s.type === "line") {
+      if (pts.length > 1) g += `<path d="${pts.map(([a, b], k) => (k ? "L" : "M") + X(a).toFixed(2) + "," + Y(b).toFixed(2)).join("")}" fill="${s.fill ? s.color : "none"}" fill-opacity="${s.fill ? 0.12 : 1}" stroke="${s.color}" stroke-width="${s.width || 1.8}" ${s.dash ? 'stroke-dasharray="5,4"' : ""}/>`;
+    } else {
+      for (const [a, b, i] of pts) {
+        const hollow = s.hollow && s.hollow[i];
+        g += `<path d="${markerPath(s.marker || "o", X(a), Y(b), s.size || 4)}" fill="${hollow ? "white" : s.color}" stroke="${s.color}" stroke-width="1.2"/>`;
+      }
+    }
+  }
+  g += `</g><rect x="${m.l}" y="${m.t}" width="${pw}" height="${ph}" fill="none" stroke="black" stroke-width="2"/>`;
+  g += `<text x="${m.l + pw / 2}" y="${H - 12}" text-anchor="middle" font-size="16">${o.xlabel || ""}</text>`;
+  g += `<text transform="translate(18,${m.t + ph / 2}) rotate(-90)" text-anchor="middle" font-size="16">${o.ylabel || ""}</text>`;
+  const leg = o.series.filter(s => s.name);
+  if (leg.length && o.legend !== false) {
+    const lx = o.legendRight ? m.l + pw - 10 : m.l + 12, anchor = o.legendRight ? "end" : "start";
+    leg.forEach((s, k) => {
+      const y = m.t + 18 + k * 19, mx = o.legendRight ? lx - 6 - 7 * Math.min(s.name.length, 28) : lx + 6;
+      if (s.type === "line") g += `<line x1="${o.legendRight ? lx - 20 : lx}" y1="${y - 4}" x2="${o.legendRight ? lx - 4 : lx + 16}" y2="${y - 4}" stroke="${s.color}" stroke-width="2.5"/>`;
+      else g += `<path d="${markerPath(s.marker || "o", o.legendRight ? lx - 10 : lx + 6, y - 4, s.size || 4)}" fill="${s.color}" stroke="${s.color}"/>`;
+      g += `<text x="${o.legendRight ? lx - 26 : lx + 22}" y="${y}" text-anchor="${anchor}" font-size="13">${esc(s.name)}</text>`;
+      void mx;
+    });
+  }
+  if (o.inset) {                                      // circuit drawn inside the plot (bottom right)
+    const iw = Math.min(pw * 0.5, o.inset.w * 0.8), ih = iw * o.inset.h / o.inset.w;
+    g += `<svg x="${m.l + pw - iw - 8}" y="${m.t + ph - ih - 8}" width="${iw}" height="${ih}" viewBox="0 0 ${o.inset.w} ${o.inset.h}">${o.inset.body}</svg>`;
+  }
+  return g + "</svg>";
+}
+
+// =========================================================================================
+// circuit schematic (SVG)
+// =========================================================================================
+function schematicSVG(tree, asParts = false) {
+  const EW = 64, EH = 40, GAP = 14;
+  const size = (n) => { if (n[0] === "e") return [EW, EH]; const s = n[1].map(size); return n[0] === "s" ? [s.reduce((a, b) => a + b[0], 0), Math.max(...s.map(b => b[1]))] : [Math.max(...s.map(b => b[0])) + 2 * GAP, s.reduce((a, b) => a + b[1], 0)]; };
+  let out = "";
+  const line = (x1, y1, x2, y2) => { out += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="black" stroke-width="1.6"/>`; };
+  const el = (t, name, x, y) => {
+    const a = x + 16, b = x + EW - 16, mid = (a + b) / 2;
+    if (t === "C" || t === "CPE") {
+      line(x, y, mid - 3, y); line(mid + 3, y, x + EW, y);
+      for (const xx of [mid - 3, mid + 3]) out += t === "C" ? `<line x1="${xx}" y1="${y - 9}" x2="${xx}" y2="${y + 9}" stroke="black" stroke-width="2.2"/>` : `<polyline points="${xx + 4},${y - 9} ${xx},${y} ${xx + 4},${y + 9}" fill="none" stroke="black" stroke-width="2"/>`;
+    } else if (t === "L" || t === "Ls") {
+      line(x, y, a, y); line(b, y, x + EW, y);
+      let d = `M${a},${y}`; const q = (b - a) / 4; for (let k = 0; k < 4; k++) d += ` a${q / 2},${q / 2} 0 0,1 ${q},0`; out += `<path d="${d}" fill="none" stroke="black" stroke-width="1.6"/>`;
+    } else {
+      line(x, y, a, y); line(b, y, x + EW, y);
+      out += `<rect x="${a}" y="${y - 7}" width="${b - a}" height="14" fill="${t === "R" ? "white" : "#dde6f5"}" stroke="black" stroke-width="1.6"/>`;
+      if (t !== "R") out += `<text x="${mid}" y="${y + 4}" text-anchor="middle" font-size="${t.length > 2 ? 8 : 10}">${t}</text>`;
+    }
+    out += `<text x="${mid}" y="${y - 13}" text-anchor="middle" font-size="11">${esc(name)}</text>`;
+  };
+  const draw = (n, x, y) => {
+    const [w, h] = size(n);
+    if (n[0] === "e") return el(n[1], n[2], x, y);
+    if (n[0] === "s") { for (const c of n[1]) { draw(c, x, y); x += size(c)[0]; } return; }
+    let cy = y - h / 2; const ys = [];
+    for (const c of n[1]) { const [cw, ch] = size(c), yc = cy + ch / 2; ys.push(yc); draw(c, x + GAP, yc); line(x + GAP + cw, yc, x + w - GAP, yc); cy += ch; }
+    line(x + GAP, Math.min(...ys), x + GAP, Math.max(...ys)); line(x + w - GAP, Math.min(...ys), x + w - GAP, Math.max(...ys));
+    line(x, y, x + GAP, y); line(x + w - GAP, y, x + w, y);
+  };
+  const [w, h] = size(tree), W = w + 40, H = h + 28;
+  draw(tree, 20, H / 2 + 6);
+  line(8, H / 2 + 6, 20, H / 2 + 6); line(20 + w, H / 2 + 6, 32 + w, H / 2 + 6);
+  out += `<circle cx="8" cy="${H / 2 + 6}" r="3.5"/><circle cx="${32 + w}" cy="${H / 2 + 6}" r="3.5"/>`;
+  if (asParts) return { w: W, h: H + 6, body: out };
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H + 6}" width="${W}" height="${H + 6}" font-family="Arial, sans-serif">${out}</svg>`;
+}
+
+// =========================================================================================
+// figures
+// =========================================================================================
+let plotId = 0;
+const colorOf = (name) => PALETTE[state.samples.findIndex(s => s.name === name) % PALETTE.length];
+const markerOf = (name) => MARKERS[state.samples.findIndex(s => s.name === name) % MARKERS.length];
+const active = () => state.samples.filter(s => s.on);
+function logspace(a, b, n) { const la = Math.log10(a), lb = Math.log10(b); return Array.from({ length: n }, (_, k) => 10 ** (la + (lb - la) * k / (n - 1))); }
+
+function nyquistSeries(withFits) {
+  const series = [];
+  for (const s of active()) {
+    const r = withFits && state.fits[s.name], col = colorOf(s.name), mk = markerOf(s.name);
+    if (r) { const fd = logspace(Math.min(...r.f), Math.max(...r.f), 300), [re, im] = EIS.predict(r, fd); series.push({ type: "line", x: re, y: im.map(v => -v), color: col }); }
+    series.push({ type: "marker", x: s.sp.re, y: s.sp.im.map(v => -v), color: col, marker: mk, size: mk === "*" ? 5.5 : 4, name: s.name, hollow: r ? r.outliers : null });
+  }
+  return series;
+}
+function bodeSeries(withFits, which) {
+  const series = [];
+  for (const s of active()) {
+    const r = withFits && state.fits[s.name], col = colorOf(s.name), mk = markerOf(s.name);
+    const y = (re, im) => which === "mod" ? re.map((v, i) => Math.hypot(v, im[i])) : re.map((v, i) => -Math.atan2(im[i], v) * 180 / Math.PI);
+    if (r) { const fd = logspace(Math.min(...r.f), Math.max(...r.f), 300), [re, im] = EIS.predict(r, fd); series.push({ type: "line", x: fd, y: y(re, im), color: col }); }
+    series.push({ type: "marker", x: s.sp.f, y: y(s.sp.re, s.sp.im), color: col, marker: mk, size: mk === "*" ? 5 : 3.5, name: s.name, hollow: r ? r.outliers : null });
+  }
+  return series;
+}
+function figureCard(title, svg, fname) {
+  const id = "fig" + (++plotId);
+  return `<div class="fig"><div class="fighead"><b>${title}</b><span><button class="mini" data-dl="${id}" data-name="${fname}" data-fmt="svg">SVG</button><button class="mini" data-dl="${id}" data-name="${fname}" data-fmt="png">PNG</button></span></div><div id="${id}" class="figbody">${svg}</div></div>`;
+}
+function renderFigures(target, withFits) {
+  if (!active().length) { $(target).innerHTML = `<p class="muted">Add data to see the plots.</p>`; return; }
+  const eq = $("#opt-equal") ? $("#opt-equal").checked : true;
+  const fitted = active().map(s => state.fits[s.name]).filter(Boolean);
+  const oneCircuit = fitted.length && fitted.every(r => r.circuit.string === fitted[0].circuit.string);
+  const inset = withFits && $("#opt-inset") && $("#opt-inset").checked && oneCircuit ? schematicSVG(fitted[0].circuit.tree, true) : null;
+  const ny = plotSVG({ id: ++plotId, series: nyquistSeries(withFits), xlabel: "Z' (Ω)", ylabel: "-Z'' (Ω)", equal: eq, width: 520, height: 420, inset });
+  const mod = plotSVG({ id: ++plotId, series: bodeSeries(withFits, "mod"), xlog: true, ylog: true, xlabel: "Frequency (Hz)", ylabel: "|Z| (Ω)", legendRight: true, width: 520, height: 300 });
+  const ph = plotSVG({ id: ++plotId, series: bodeSeries(withFits, "phase"), xlog: true, xlabel: "Frequency (Hz)", ylabel: "-Phase (°)", width: 520, height: 300, ymin0: true });
+  $(target).innerHTML = `<div class="figgrid">${figureCard("Nyquist", ny, "nyquist")}<div>${figureCard("Bode – modulus", mod, "bode_modulus")}${figureCard("Bode – phase", ph, "bode_phase")}</div></div>`;
+}
+function downloadFigure(id, name, fmt) {
+  const svg = $("#" + id).innerHTML;
+  if (fmt === "svg") return saveBlob(new Blob([svg], { type: "image/svg+xml" }), name + ".svg");
+  const img = new Image(), url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
+  img.onload = () => { const sc = 4, c = document.createElement("canvas"); c.width = img.width * sc; c.height = img.height * sc; const ctx = c.getContext("2d"); ctx.fillStyle = "white"; ctx.fillRect(0, 0, c.width, c.height); ctx.scale(sc, sc); ctx.drawImage(img, 0, 0); c.toBlob(b => saveBlob(b, name + ".png")); URL.revokeObjectURL(url); };
+  img.src = url;
+}
+function saveBlob(blob, name) { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); }
+
+// =========================================================================================
+// samples
+// =========================================================================================
+function addSpectrum(sp) {
+  let name = sp.name || "Sample"; while (state.samples.some(s => s.name === name)) name += "'";
+  sp.name = name;
+  if (sp.f.length < 5) throw new Error(`'${name}': at least 5 frequencies are needed`);
+  let kk = null; try { kk = EIS.linKK(sp); } catch (e) { /* ignore */ }
+  state.samples.push({ name, sp, on: true, kk });
+}
+function renderSamples() {
+  const el = $("#sample-list");
+  if (!state.samples.length) { el.innerHTML = `<p class="muted">No samples yet. Paste data, upload a file or load the example.</p>`; }
+  else el.innerHTML = state.samples.map((s, i) => `<div class="sample">
+      <input type="checkbox" data-on="${i}" ${s.on ? "checked" : ""} title="include in plots and fits">
+      <span class="swatch" style="background:${PALETTE[i % PALETTE.length]}"></span>
+      <input class="sname" data-rename="${i}" value="${esc(s.name)}">
+      <span class="muted">${s.sp.f.length} pts, ${supHTML(fmtNum(Math.min(...s.sp.f), 2))}–${supHTML(fmtNum(Math.max(...s.sp.f), 2))} Hz</span>
+      ${s.kk ? `<span class="badge ${s.kk.verdict.toLowerCase()}" title="Kramers–Kronig: RMS ${(100 * s.kk.rms).toFixed(2)} %, max ${(100 * s.kk.max).toFixed(2)} %">KK ${s.kk.verdict}</span>${s.kk.failedF.length ? `<span class="muted">${s.kk.failedF.length} point(s) fail KK (${fmtNum(Math.min(...s.kk.failedF), 2)}–${fmtNum(Math.max(...s.kk.failedF), 2)} Hz) – down-weighted by the robust fit if off-trend</span>` : ""}` : ""}
+      <button class="mini danger" data-del="${i}" title="remove">✕</button></div>`).join("");
+  $("#sample-count").textContent = state.samples.length;
+  renderFigures("#data-figs", false);
+}
+function exampleData() {
+  const f = logspace(1e5, 0.01, 61), mk = (name, p) => { const c = new EIS.Circuit("R0-p(R1,CPE1)"), [re, im] = c.impedance(p, f.map(x => 2 * Math.PI * x)); let seed = name.length * 97;
+    const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647 - 0.5; };
+    const r = Array.from(re, (v, i) => v * (1 + 0.006 * rnd())), m = Array.from(im, (v, i) => v * (1 + 0.006 * rnd()));
+    r[24] *= 1.04; m[40] *= 0.9;                                            // two odd points (robust fit ignores them)
+    return EIS.makeSpectrum(f, r, m, name); };
+  [["Material A", [1.05, 12.5, 2e-3, 0.85]], ["Material B", [1.0, 8.2, 3e-3, 0.83]], ["Material C", [1.1, 4.6, 5e-3, 0.86]], ["Material D", [1.0, 1.0, 2e-2, 0.82]], ["Material E", [1.05, 2.1, 1e-2, 0.84]]].forEach(([n, p]) => addSpectrum(mk(n, p)));
+}
+
+// =========================================================================================
+// data input handlers
+// =========================================================================================
+async function readFile(file) {
+  const stem = file.name.replace(/\.[^.]+$/, "");
+  if (/\.xlsx?$|\.xlsm$/i.test(file.name)) {
+    if (/\.xls$/i.test(file.name)) throw new Error(`${file.name}: old .xls files are not supported – save as .xlsx or .csv`);
+    if (typeof DecompressionStream === "undefined") throw new Error("this browser cannot read .xlsx files – save the sheet as .csv, or use a current Chrome/Edge/Firefox/Safari");
+    return EIS.fromGrid(await EIS.unzipXlsxGrid(await file.arrayBuffer()), stem, $("#file-fmt").value);
+  }
+  return EIS.fromGrid(EIS.textToGrid(await file.text()), stem, $("#file-fmt").value);
+}
+async function addFromInput() {
+  const mode = $("input[name=mode]:checked").value, name = $("#in-name").value.trim();
+  const msg = $("#in-msg"); msg.className = "msg"; msg.textContent = "";
+  try {
+    let added = [];
+    if (mode === "table") {
+      const sp = EIS.fromText($("#in-table").value, name || `Sample ${state.samples.length + 1}`, $("#in-fmt").value); addSpectrum(sp); added.push(sp.name);
+    } else if (mode === "columns") {
+      const sp = EIS.fromColumns($("#in-f").value, $("#in-re").value, $("#in-im").value, name || `Sample ${state.samples.length + 1}`, $("#in-imsign").value); addSpectrum(sp); added.push(sp.name);
+    } else {
+      const files = $("#in-file").files; if (!files.length) throw new Error("choose at least one file");
+      for (const file of files) { const sps = await readFile(file); for (const sp of sps) { if (name && sps.length === 1 && files.length === 1) sp.name = name; addSpectrum(sp); added.push(sp.name); } }
+    }
+    msg.classList.add("ok"); msg.textContent = `Added: ${added.join(", ")}`;
+    $("#in-name").value = "";
+    renderSamples();
+  } catch (e) { msg.classList.add("err"); msg.textContent = e.message; }
+}
+
+// =========================================================================================
+// circuit selection
+// =========================================================================================
+function updateCircuitPreview() {
+  const txt = $("#circ-input").value, box = $("#circ-preview");
+  try {
+    const c = new EIS.Circuit(txt);
+    state.circuit = c.string;
+    box.innerHTML = `<div class="ok">Read as: <b>${esc(c.explain())}</b></div>
+      <div class="muted">Canonical: <code>${esc(c.string)}</code> &nbsp;·&nbsp; ${c.nParams} parameters: ${c.names.map(n => elementLabel(n)).join(", ")}</div>
+      <div class="schem">${schematicSVG(c.tree)}</div>`;
+    $("#btn-fit").disabled = false;
+  } catch (e) { box.innerHTML = `<div class="err">${esc(e.message)}</div>`; $("#btn-fit").disabled = true; }
+}
+function fitOptions() { return { robust: $("#opt-robust").checked, weighting: $("#opt-weight").value, nStarts: Number($("#opt-starts").value) || 8 }; }
+const sleep = () => new Promise(r => setTimeout(r, 0));
+function setBusy(on, text = "") { state.busy = on; $("#busy").style.display = on ? "flex" : "none"; $("#busy-text").textContent = text; $$("button.act").forEach(b => b.disabled = on); }
+
+async function runFit() {
+  if (!active().length) return alert("Add (and tick) at least one sample first.");
+  setBusy(true, "Fitting …"); await sleep();
+  const errors = [];
+  for (const s of active()) {
+    $("#busy-text").textContent = `Fitting ${s.name} …`; await sleep();
+    try { state.fits[s.name] = EIS.fit(s.sp, state.circuit, fitOptions()); } catch (e) { errors.push(`${s.name}: ${e.message}`); }
+  }
+  setBusy(false); if (errors.length) alert(errors.join("\n"));
+  renderFitResults(); renderResults();
+}
+async function runSearch(common) {
+  if (!active().length) return alert("Add (and tick) at least one sample first.");
+  const lib = $("#lib-scope").value === "custom" ? $("#lib-custom").value.split(/\n+/).map(x => x.trim()).filter(Boolean).map(c => ({ name: "user", circuit: c })) : LIT;
+  setBusy(true, "Searching …"); await sleep();
+  for (const [k, s] of active().entries()) {
+    state.searches[s.name] = await EIS.search(s.sp, lib, fitOptions(), (i, n, j, m) => {
+      $("#busy-text").textContent = `${s.name} (${k + 1}/${active().length}): ${j ? `refining best circuits ${j}/${m}` : `screening circuit ${i}/${n}`}`;
+    });
+  }
+  if (common) {
+    const names = active().map(s => s.name), score = {};
+    for (const n of names) for (const r of state.searches[n]) { const c = r.circuit.string; score[c] = score[c] || { v: 0, a: 0, n: 0 }; score[c].v += r.valid; score[c].a += r.aicc; score[c].n++; }
+    const full = Object.entries(score).filter(([, v]) => v.n === names.length), need = Math.max(1, Math.ceil(names.length / 2));
+    const cand = full.filter(([, v]) => v.v >= need);
+    const best = (cand.length ? cand : full).sort((a, b) => a[1].a - b[1].a)[0];     // lowest summed AICc, valid for ≥ half
+    for (const n of names) state.fits[n] = state.searches[n].find(r => r.circuit.string === best[0]);
+    $("#circ-input").value = best[0];
+  } else {
+    for (const s of active()) { const v = state.searches[s.name].filter(r => r.valid); state.fits[s.name] = (v.length ? v : state.searches[s.name])[0]; }
+  }
+  setBusy(false); updateCircuitPreview(); renderFitResults(); renderResults();
+}
+function renderFitResults() {
+  renderFigures("#fit-figs", true);
+  const cards = active().filter(s => state.fits[s.name]).map(s => {
+    const r = state.fits[s.name], kk = s.kk;
+    const rows = r.circuit.names.map((n, i) => `<tr><td>${elementLabel(n)}</td><td>${supHTML(fmtPM(r.p[i], r.sd[i]))}</td><td>${r.circuit.units[i]}</td><td class="${!isFinite(r.rel[i]) || r.rel[i] > 100 ? "bad" : ""}">${isFinite(r.rel[i]) ? r.rel[i].toFixed(1) : "∞"}</td><td>${supHTML(fmtNum(r.p[i] - 1.96 * r.sd[i], 3))} – ${supHTML(fmtNum(r.p[i] + 1.96 * r.sd[i], 3))}</td></tr>`).join("");
+    const res = plotSVG({ id: ++plotId, series: [{ type: "marker", x: r.f, y: r.f.map((_, i) => 100 * (r.re[i] - r.fitRe[i]) / Math.hypot(r.re[i], r.im[i])), color: "#1f77b4", marker: "o", size: 3, name: "Δ real", hollow: r.outliers },
+      { type: "marker", x: r.f, y: r.f.map((_, i) => 100 * (r.im[i] - r.fitIm[i]) / Math.hypot(r.re[i], r.im[i])), color: "#ff7f0e", marker: "s", size: 3, name: "Δ imag", hollow: r.outliers }],
+      xlog: true, xlabel: "Frequency (Hz)", ylabel: "Residual (% of |Z|)", width: 420, height: 240, legendRight: true });
+    const ranking = state.searches[s.name] ? `<details><summary>Circuit ranking (${state.searches[s.name].length} circuits)</summary><table class="tbl small"><tr><th>#</th><th>Circuit</th><th>Name</th><th>k</th><th>RMS %</th><th>AICc</th><th>Valid</th><th></th></tr>${state.searches[s.name].slice(0, 15).map((x, i) => `<tr><td>${i + 1}</td><td><code>${esc(x.circuit.string)}</code></td><td>${esc(x.circuit.description || "")}</td><td>${x.circuit.nParams}</td><td>${x.rmsPct.toFixed(3)}</td><td>${x.aicc.toFixed(1)}</td><td>${x.valid ? "✓" : "✗"}</td><td><button class="mini" data-use="${esc(x.circuit.string)}">use</button></td></tr>`).join("")}</table></details>` : "";
+    return `<div class="card"><h3><span class="swatch" style="background:${colorOf(s.name)}"></span>${esc(s.name)} <code>${esc(r.circuit.string)}</code> <span class="badge ${r.valid ? "pass" : "check"}">${r.valid ? "valid" : "check flags"}</span></h3>
+      <div class="cols"><div><table class="tbl"><tr><th>Element</th><th>Value ± SD</th><th>Unit</th><th>Rel. err %</th><th>95 % CI</th></tr>${rows}</table>
+      <p class="stats">χ² = ${supHTML(fmtNum(r.chi2, 3))} · reduced χ² = ${supHTML(fmtNum(r.redChi2, 3))} · RMS = ${r.rmsPct.toFixed(3)} % of |Z| · R² = ${r.r2.toFixed(5)} · AICc = ${r.aicc.toFixed(1)}${kk ? ` · KK max ${(100 * kk.max).toFixed(2)} %` : ""}${r.nOutliers ? ` · <b>${r.nOutliers} point(s) off-trend, down-weighted</b> (hollow markers)` : ""}</p>
+      ${r.derived.length ? `<p class="stats">${r.derived.map(d => `${esc(d.element)}: τ = ${supHTML(fmtNum(d.tau, 3))} s, f<sub>c</sub> = ${supHTML(fmtNum(d.fc, 3))} Hz${d.Ceff ? `, C<sub>eff</sub> = ${supHTML(fmtNum(d.Ceff, 3))} F` : ""}`).join(" · ")}</p>` : ""}
+      ${r.flags.length ? `<ul class="flags">${r.flags.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}</div>
+      <div>${figureCard("Residuals", res, "residuals_" + s.name.replace(/\W+/g, "_"))}</div></div>${ranking}</div>`;
+  }).join("");
+  $("#fit-cards").innerHTML = cards || `<p class="muted">No fits yet.</p>`;
+}
+
+// =========================================================================================
+// DRT
+// =========================================================================================
+async function runDRT() {
+  if (!active().length) return alert("Add (and tick) at least one sample first.");
+  setBusy(true, "Computing DRT …"); await sleep();
+  const lamMode = $("#drt-lam").value, lam = lamMode === "auto" ? "auto" : Number($("#drt-lamval").value);
+  for (const s of active()) { $("#busy-text").textContent = `DRT of ${s.name} …`; await sleep(); state.drts[s.name] = EIS.drt(s.sp, { lambda: lam }); }
+  setBusy(false); renderDRT(); renderResults();
+}
+function renderDRT() {
+  const ds = active().filter(s => state.drts[s.name]);
+  if (!ds.length) { $("#drt-out").innerHTML = ""; return; }
+  const series = [];
+  for (const s of ds) {
+    const d = state.drts[s.name], fmin = Math.min(...d.f), fmax = Math.max(...d.f), col = colorOf(s.name);
+    const inside = d.fTau.map(v => v >= fmin * 0.999 && v <= fmax * 1.001);
+    series.push({ type: "line", x: d.fTau.filter((_, i) => inside[i]), y: d.gamma.filter((_, i) => inside[i]), color: col, name: s.name, width: 2.2, fill: false });
+    const pk = d.peaks.filter(p => p.major); series.push({ type: "marker", x: pk.map(p => p.f), y: pk.map(p => p.gamma), color: col, marker: "v", size: 5 });
+  }
+  const svg = plotSVG({ id: ++plotId, series, xlog: true, xlabel: "Frequency (Hz)", ylabel: "γ (Ω)", ymin0: true, width: 640, height: 400, legendRight: true });
+  const rows = ds.flatMap(s => state.drts[s.name].peaks.map(p => `<tr class="${p.major ? "" : "minor"}"><td>${esc(s.name)}</td><td>${supHTML(fmtNum(p.f, 3))}</td><td>${supHTML(fmtNum(p.tau, 3))}</td><td>${fmtNum(p.R, 3)}</td><td>${(100 * p.fraction).toFixed(1)}</td><td>${p.major ? "major" : p.inWindow ? "minor" : "outside data"}</td></tr>`)).join("");
+  const sum = ds.map(s => { const d = state.drts[s.name]; return `<tr><td>${esc(s.name)}</td><td>${fmtNum(d.Rinf, 4)}</td><td>${fmtNum(d.Rpol, 4)}</td><td>${d.peaks.filter(p => p.major).length}</td><td>${supHTML(fmtNum(d.lambda, 2))}</td><td>${d.rmsPct.toFixed(2)}</td></tr>`; }).join("");
+  $("#drt-out").innerHTML = `<div class="cols">${figureCard("Distribution of relaxation times", svg, "drt")}<div>
+    <table class="tbl small"><tr><th>Sample</th><th>R<sub>∞</sub> (Ω)</th><th>R<sub>pol</sub> (Ω)</th><th>Major peaks</th><th>λ</th><th>Reconstr. RMS %</th></tr>${sum}</table>
+    <table class="tbl small"><tr><th>Sample</th><th>f peak (Hz)</th><th>τ (s)</th><th>R (Ω)</th><th>% of R<sub>pol</sub></th><th></th></tr>${rows}</table>
+    <p class="muted">Each major peak is one relaxation process; its area is the resistance of that process. Use the number of major peaks as a guide to how many time constants (arcs) the circuit needs.</p></div></div>`;
+}
+
+// =========================================================================================
+// results & export
+// =========================================================================================
+function comparisonRows() {
+  const names = active().map(s => s.name).filter(n => state.fits[n]), keys = [], rows = {};
+  for (const n of names) { const r = state.fits[n]; r.circuit.names.forEach((pn, i) => { const k = plainLabel(pn) + (r.circuit.units[i] ? ` (${r.circuit.units[i]})` : ""); if (!rows[k]) { rows[k] = { html: elementLabel(pn) + (r.circuit.units[i] ? ` (${r.circuit.units[i]})` : "") }; keys.push(k); } rows[k][n] = fmtPM(r.p[i], r.sd[i]) + (!isFinite(r.rel[i]) || r.rel[i] > 100 ? " ᵃ" : ""); }); }
+  keys.push("χ²"); rows["χ²"] = { html: "χ²" }; names.forEach(n => rows["χ²"][n] = fmtNum(state.fits[n].chi2, 2));
+  return { names, keys, rows };
+}
+function renderResults() {
+  const { names, keys, rows } = comparisonRows();
+  if (!names.length) { $("#res-out").innerHTML = `<p class="muted">Fit some samples first (tab 2).</p>`; return; }
+  const comp = `<table class="tbl" id="tbl-comp"><tr><th>Element</th>${names.map(n => `<th>${esc(n)}</th>`).join("")}</tr>${keys.map(k => `<tr><td>${rows[k].html}</td>${names.map(n => `<td>${supHTML(rows[k][n] || "–")}</td>`).join("")}</tr>`).join("")}</table>`;
+  const gof = `<table class="tbl" id="tbl-gof"><tr><th>Sample</th><th>Circuit</th><th>N</th><th>Outliers</th><th>χ²</th><th>Reduced χ²</th><th>RMS %</th><th>R²</th><th>AICc</th><th>KK max %</th><th>Valid</th></tr>${names.map(n => { const r = state.fits[n], kk = state.samples.find(s => s.name === n).kk; return `<tr><td>${esc(n)}</td><td><code>${esc(r.circuit.string)}</code></td><td>${r.f.length}</td><td>${r.nOutliers}</td><td>${supHTML(fmtNum(r.chi2, 3))}</td><td>${supHTML(fmtNum(r.redChi2, 3))}</td><td>${r.rmsPct.toFixed(3)}</td><td>${r.r2.toFixed(5)}</td><td>${r.aicc.toFixed(1)}</td><td>${kk ? (100 * kk.max).toFixed(2) : "–"}</td><td>${r.valid ? "✓" : "✗"}</td></tr>`; }).join("")}</table>`;
+  $("#res-out").innerHTML = `<h3>Table 1 – Equivalent-circuit parameters</h3><p class="muted">Value ± standard error. CPE-T = Q (S·sⁿ), CPE-P = n; W-R, W-T = resistance and time constant of finite Warburg elements. ᵃ not determined (relative error > 100 %).</p>${comp}
+    <div class="btnrow"><button class="act" data-copy="tbl-comp">Copy table (paste into Word/Excel)</button><button class="act" id="dl-comp">Download CSV</button></div>
+    <h3>Table S1 – Goodness of fit and Kramers–Kronig validation</h3>${gof}<div class="btnrow"><button class="act" data-copy="tbl-gof">Copy table</button></div>
+    <h3>Downloads</h3><div class="btnrow"><button class="act" id="dl-xlsx">Excel workbook (all tables + fitted data)</button><button class="act" id="dl-curves">Fitted curves (CSV)</button><button class="act" id="dl-long">Parameters with 95 % CI (CSV)</button>${Object.keys(state.drts).length ? `<button class="act" id="dl-drt">DRT (CSV)</button>` : ""}</div>`;
+}
+const csv = (rows) => rows.map(r => r.map(v => { const s = String(v ?? ""); return /[",;\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; }).join(",")).join("\n");
+function tableData(kind) {
+  if (kind === "comp") { const { names, keys, rows } = comparisonRows(); return [["Element", ...names], ...keys.map(k => [k, ...names.map(n => rows[k][n] || "–")])]; }
+  if (kind === "long") { const out = [["Sample", "Circuit", "Parameter", "Value", "SD", "Rel. error %", "CI95 low", "CI95 high", "Unit"]]; for (const s of active()) { const r = state.fits[s.name]; if (r) r.circuit.names.forEach((n, i) => out.push([s.name, r.circuit.string, plainLabel(n), r.p[i], r.sd[i], r.rel[i], r.p[i] - 1.96 * r.sd[i], r.p[i] + 1.96 * r.sd[i], r.circuit.units[i]])); } return out; }
+  if (kind === "gof") { const out = [["Sample", "Circuit", "N", "Outliers", "chi2", "reduced chi2", "RMS %", "R2", "AICc", "KK max %", "Valid", "Flags"]]; for (const s of active()) { const r = state.fits[s.name]; if (r) out.push([s.name, r.circuit.string, r.f.length, r.nOutliers, r.chi2, r.redChi2, r.rmsPct, r.r2, r.aicc, s.kk ? 100 * s.kk.max : "", r.valid, r.flags.join("; ")]); } return out; }
+  if (kind === "curves") { const out = [["Sample", "f (Hz)", "Z' data", "-Z'' data", "Z' fit", "-Z'' fit", "outlier"]]; for (const s of active()) { const r = state.fits[s.name]; if (r) r.f.forEach((f, i) => out.push([s.name, f, r.re[i], -r.im[i], r.fitRe[i], -r.fitIm[i], r.outliers[i] ? 1 : 0])); } return out; }
+  if (kind === "drt") { const out = [["Sample", "tau (s)", "f (Hz)", "gamma (Ohm)"]]; for (const s of active()) { const d = state.drts[s.name]; if (d) d.tau.forEach((t, i) => out.push([s.name, t, d.fTau[i], d.gamma[i]])); } return out; }
+}
+// minimal .xlsx writer (stored zip, no compression)
+function crc32(u8) { let c, crc = 0xFFFFFFFF; for (let n = 0; n < u8.length; n++) { c = (crc ^ u8[n]) & 0xFF; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; crc = (crc >>> 8) ^ c; } return (crc ^ 0xFFFFFFFF) >>> 0; }
+function zip(files) {
+  const enc = new TextEncoder(), parts = [], central = []; let off = 0;
+  for (const [name, text] of files) {
+    const data = enc.encode(text), nm = enc.encode(name), crc = crc32(data), h = new DataView(new ArrayBuffer(30));
+    h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint32(14, crc, true); h.setUint32(18, data.length, true); h.setUint32(22, data.length, true); h.setUint16(26, nm.length, true);
+    parts.push(new Uint8Array(h.buffer), nm, data);
+    const c = new DataView(new ArrayBuffer(46)); c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint32(16, crc, true); c.setUint32(20, data.length, true); c.setUint32(24, data.length, true); c.setUint16(28, nm.length, true); c.setUint32(42, off, true);
+    central.push(new Uint8Array(c.buffer), nm); off += 30 + nm.length + data.length;
+  }
+  const csize = central.reduce((s, a) => s + a.length, 0), e = new DataView(new ArrayBuffer(22));
+  e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true); e.setUint32(12, csize, true); e.setUint32(16, off, true);
+  return new Blob([...parts, ...central, new Uint8Array(e.buffer)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+}
+function xlsx(sheets) {
+  const x = (s) => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const col = (i) => { let s = ""; i++; while (i) { const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); } return s; };
+  const files = [["[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${sheets.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("")}</Types>`],
+    ["_rels/.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`],
+    ["xl/workbook.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${sheets.map(([n], i) => `<sheet name="${x(n)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join("")}</sheets></workbook>`],
+    ["xl/_rels/workbook.xml.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join("")}<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`],
+    ["xl/styles.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf/></cellStyleXfs><cellXfs count="2"><xf fontId="0"/><xf fontId="1" applyFont="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`]];
+  sheets.forEach(([, rows], i) => {
+    const body = rows.map((r, ri) => `<row r="${ri + 1}">${r.map((v, ci) => { const ref = col(ci) + (ri + 1), st = ri === 0 ? ' s="1"' : ""; return typeof v === "number" && isFinite(v) ? `<c r="${ref}"${st}><v>${v}</v></c>` : typeof v === "boolean" ? `<c r="${ref}" t="b"${st}><v>${v ? 1 : 0}</v></c>` : `<c r="${ref}" t="inlineStr"${st}><is><t>${x(v ?? "")}</t></is></c>`; }).join("")}</row>`).join("");
+    files.push([`xl/worksheets/sheet${i + 1}.xml`, `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${body}</sheetData></worksheet>`]);
+  });
+  return zip(files);
+}
+function copyTable(id) {
+  const t = $("#" + id), text = Array.from(t.rows).map(r => Array.from(r.cells).map(c => c.innerText.replace(/\n/g, " ")).join("\t")).join("\n");
+  const done = () => { const b = $(`[data-copy="${id}"]`); const o = b.textContent; b.textContent = "Copied ✓"; setTimeout(() => b.textContent = o, 1500); };
+  if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(done);
+  else { const ta = document.createElement("textarea"); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); done(); }
+}
+
+// =========================================================================================
+// wiring
+// =========================================================================================
+function initLibrary() {
+  $("#circ-lib").innerHTML = `<option value="">— choose a literature circuit (${LIT.length}) —</option>` + LIT.map((c, i) => `<option value="${i}">${esc(c.name)}  ·  ${esc(c.circuit)}</option>`).join("");
+  $("#lib-table").innerHTML = `<tr><th>#</th><th>Name</th><th>Typical application</th><th>Circuit</th><th>Elements</th></tr>` + LIT.map((c, i) => `<tr><td>${i + 1}</td><td>${esc(c.name)}</td><td>${esc(c.field)}</td><td><code>${esc(c.circuit)}</code></td><td>${esc(c.elements)}</td></tr>`).join("");
+}
+function showTab(t) { $$(".tab").forEach(b => b.classList.toggle("on", b.dataset.tab === t)); $$(".page").forEach(p => p.style.display = p.id === "page-" + t ? "block" : "none"); if (t === "fit") renderFigures("#fit-figs", true); if (t === "results") renderResults(); }
+document.addEventListener("DOMContentLoaded", () => {
+  initLibrary();
+  $$(".tab").forEach(b => b.onclick = () => showTab(b.dataset.tab));
+  $$("input[name=mode]").forEach(r => r.onchange = () => $$(".mode").forEach(m => m.style.display = m.dataset.mode === r.value ? "block" : "none"));
+  $("#btn-add").onclick = addFromInput;
+  $("#btn-example").onclick = () => { exampleData(); renderSamples(); };
+  $("#btn-clear").onclick = () => { if (confirm("Remove all samples and results?")) { state.samples = []; state.fits = {}; state.searches = {}; state.drts = {}; renderSamples(); renderFitResults(); renderDRT(); } };
+  $("#circ-input").oninput = updateCircuitPreview;
+  $("#circ-lib").onchange = (e) => { if (e.target.value !== "") { $("#circ-input").value = LIT[e.target.value].circuit; updateCircuitPreview(); } };
+  $("#btn-fit").onclick = runFit;
+  $("#btn-search").onclick = () => runSearch(false);
+  $("#btn-common").onclick = () => runSearch(true);
+  $("#btn-drt").onclick = runDRT;
+  $("#drt-lam").onchange = (e) => $("#drt-lamval").style.display = e.target.value === "auto" ? "none" : "inline-block";
+  $("#lib-scope").onchange = (e) => $("#lib-custom").style.display = e.target.value === "custom" ? "block" : "none";
+  $("#opt-equal").onchange = () => renderFigures("#fit-figs", true);
+  $("#opt-inset").onchange = () => renderFigures("#fit-figs", true);
+  document.body.addEventListener("click", (e) => {
+    const t = e.target;
+    if (t.dataset.dl) downloadFigure(t.dataset.dl, t.dataset.name, t.dataset.fmt);
+    if (t.dataset.del !== undefined) { const s = state.samples[+t.dataset.del]; delete state.fits[s.name]; delete state.drts[s.name]; delete state.searches[s.name]; state.samples.splice(+t.dataset.del, 1); renderSamples(); }
+    if (t.dataset.use) { $("#circ-input").value = t.dataset.use; updateCircuitPreview(); window.scrollTo({ top: 0, behavior: "smooth" }); }
+    if (t.dataset.copy) copyTable(t.dataset.copy);
+    if (t.id === "dl-comp") saveBlob(new Blob(["\ufeff" + csv(tableData("comp"))], { type: "text/csv" }), "eis_parameters.csv");
+    if (t.id === "dl-long") saveBlob(new Blob(["\ufeff" + csv(tableData("long"))], { type: "text/csv" }), "eis_parameters_CI.csv");
+    if (t.id === "dl-curves") saveBlob(new Blob(["\ufeff" + csv(tableData("curves"))], { type: "text/csv" }), "eis_fitted_curves.csv");
+    if (t.id === "dl-drt") saveBlob(new Blob(["\ufeff" + csv(tableData("drt"))], { type: "text/csv" }), "eis_drt.csv");
+    if (t.id === "dl-xlsx") saveBlob(xlsx([["Parameters", tableData("comp")], ["Parameters CI", tableData("long")], ["Goodness of fit", tableData("gof")], ["Fitted curves", tableData("curves")], ...(Object.keys(state.drts).length ? [["DRT", tableData("drt")]] : [])]), "eis_results.xlsx");
+  });
+  document.body.addEventListener("change", (e) => {
+    const t = e.target;
+    if (t.dataset.on !== undefined) { state.samples[+t.dataset.on].on = t.checked; renderSamples(); }
+    if (t.dataset.rename !== undefined) { const s = state.samples[+t.dataset.rename], old = s.name, nn = t.value.trim() || old; if (nn !== old && !state.samples.some(x => x.name === nn)) { s.name = nn; s.sp.name = nn; for (const store of [state.fits, state.drts, state.searches]) if (store[old]) { store[nn] = store[old]; delete store[old]; } } renderSamples(); }
+  });
+  $("#circ-input").value = state.circuit; updateCircuitPreview(); renderSamples(); showTab("data");
+});
+</script>
+</body>
+</html>
